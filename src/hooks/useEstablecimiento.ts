@@ -34,49 +34,74 @@ export function useEstablecimiento(): Result {
 
   useEffect(() => {
     const supabase = createClient()
+    let cancelled = false
 
-    async function loadData(uid: string, email: string | null) {
-      setUserId(uid)
-      setUserEmail(email ?? null)
+    async function load() {
+      // getUser() valida el JWT con el servidor — más confiable que getSession()
+      const { data: { user }, error: userErr } = await supabase.auth.getUser()
+      if (cancelled) return
 
-      const { data: p } = await supabase
+      if (userErr || !user) {
+        setLoading(false)
+        return
+      }
+
+      setUserId(user.id)
+      setUserEmail(user.email ?? null)
+
+      const { data: p, error: pErr } = await supabase
         .from('perfil_usuarios')
         .select('user_id, establecimiento_id, nombre_completo, rol, avatar_iniciales')
-        .eq('user_id', uid)
+        .eq('user_id', user.id)
         .single()
 
-      if (!p) { setLoading(false); return }
+      if (cancelled) return
+
+      if (pErr) {
+        console.error('[CampoOS] Error al cargar perfil:', pErr.message)
+        setLoading(false)
+        return
+      }
+      if (!p) {
+        setLoading(false)
+        return
+      }
+
       setPerfil(p)
 
-      const { data: e } = await supabase
+      const { data: e, error: eErr } = await supabase
         .from('establecimientos')
         .select('id, nombre, provincia, superficie')
         .eq('id', p.establecimiento_id)
         .single()
 
-      if (e) setEstablecimiento(e)
+      if (cancelled) return
+
+      if (eErr) {
+        console.error('[CampoOS] Error al cargar establecimiento:', eErr.message)
+      } else if (e) {
+        setEstablecimiento(e)
+      }
+
       setLoading(false)
     }
 
-    function clear() {
-      setUserId(null); setUserEmail(null)
-      setPerfil(null); setEstablecimiento(null)
-      setLoading(false)
+    load()
+
+    // Solo escucha logout: el componente se remonta en cada navegación (flujo normal)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT' && !cancelled) {
+        setUserId(null)
+        setUserEmail(null)
+        setPerfil(null)
+        setEstablecimiento(null)
+      }
+    })
+
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
     }
-
-    // Carga inicial
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) loadData(session.user.id, session.user.email ?? null)
-      else clear()
-    })
-
-    // Reactivo ante cambios de sesión (login / logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      if (session?.user) loadData(session.user.id, session.user.email ?? null)
-      else clear()
-    })
-
-    return () => subscription.unsubscribe()
   }, [])
 
   return { userId, userEmail, perfil, establecimiento, loading }
