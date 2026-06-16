@@ -72,24 +72,21 @@ export default function Register() {
       }
 
       // ── Paso 2: Crear establecimiento ─────────────────────────────────────────
+      // UUID generado en cliente: evita .select() en el INSERT para no disparar
+      // la política SELECT (ver_mi_establecimiento) sobre una fila sin perfil_usuarios,
+      // lo que causaría que PostgREST haga rollback con 403.
       console.log('[Register] Paso 2: creando establecimiento...')
-      const { data: est, error: estError } = await supabase
+      const estId = crypto.randomUUID()
+      const { error: estError } = await supabase
         .from('establecimientos')
-        .insert({ nombre: nombreEstablecimiento.trim(), provincia: provincia.trim() || null })
-        .select('id')
-        .single()
+        .insert({ id: estId, nombre: nombreEstablecimiento.trim(), provincia: provincia.trim() || null })
 
       if (estError) {
         console.error('[Register] Error al crear establecimiento:', estError.message, '| code:', estError.code)
         setError('Error al crear el establecimiento. Revisá la consola para más detalles.')
         return
       }
-      if (!est) {
-        console.error('[Register] Establecimiento no creado — sin error pero sin data')
-        setError('Error al crear el establecimiento. Intentá de nuevo.')
-        return
-      }
-      console.log('[Register] Establecimiento creado — id:', est.id)
+      console.log('[Register] Establecimiento creado — id:', estId)
 
       // ── Paso 3: Crear perfil de usuario ───────────────────────────────────────
       console.log('[Register] Paso 3: creando perfil_usuarios...')
@@ -98,7 +95,7 @@ export default function Register() {
         .from('perfil_usuarios')
         .insert({
           user_id: user.id,
-          establecimiento_id: est.id,
+          establecimiento_id: estId,
           nombre_completo: nombreCompleto.trim(),
           rol: 'admin',
           avatar_iniciales: iniciales,
@@ -106,8 +103,8 @@ export default function Register() {
 
       if (perfilError) {
         console.error('[Register] Error al crear perfil:', perfilError.message, '| code:', perfilError.code)
-        // Rollback: eliminar el establecimiento recién creado
-        const { error: delErr } = await supabase.from('establecimientos').delete().eq('id', est.id)
+        // Rollback best-effort (puede fallar si no hay política DELETE)
+        const { error: delErr } = await supabase.from('establecimientos').delete().eq('id', estId)
         if (delErr) console.warn('[Register] No se pudo hacer rollback del establecimiento:', delErr.message)
         else console.log('[Register] Rollback del establecimiento ok')
         setError('Error al configurar el perfil. Intentá de nuevo.')

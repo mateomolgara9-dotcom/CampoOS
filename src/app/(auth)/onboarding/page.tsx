@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 function generarIniciales(nombre: string): string {
   const partes = nombre.trim().split(/\s+/)
@@ -13,6 +14,8 @@ function generarIniciales(nombre: string): string {
 
 export default function Onboarding() {
   const router = useRouter()
+  // Un único cliente compartido entre verificación y submit
+  const supabaseRef = useRef<SupabaseClient | null>(null)
 
   const [userId, setUserId] = useState<string | null>(null)
   const [checkingState, setCheckingState] = useState(true)
@@ -23,7 +26,8 @@ export default function Onboarding() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const supabase = createClient()
+    supabaseRef.current = createClient()
+    const supabase = supabaseRef.current
     let cancelled = false
 
     async function verificarEstado() {
@@ -65,36 +69,53 @@ export default function Onboarding() {
 
     setSubmitting(true)
     try {
-      const supabase = createClient()
+      const supabase = supabaseRef.current ?? createClient()
+
+      // Verificar sesión activa antes de cualquier INSERT
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('[Onboarding] Sesión al hacer submit:', {
+        userId: session?.user?.id ?? null,
+        hasAccessToken: !!session?.access_token,
+        tokenExpiry: session?.expires_at ?? null,
+      })
+      if (!session) {
+        console.error('[Onboarding] Sin sesión activa — redirigiendo a login')
+        router.replace('/login?next=/onboarding')
+        return
+      }
 
       // Paso 1: crear establecimiento
-      const { data: est, error: estError } = await supabase
+      // Generamos el UUID en el cliente para evitar usar .select() en el INSERT.
+      // Si usáramos .insert().select('id'), PostgREST evaluaría las políticas SELECT
+      // (ver_mi_establecimiento) sobre la fila recién creada, fallaría (perfil_usuarios
+      // aún no existe) y haría rollback del INSERT completo con error 403.
+      const estId = crypto.randomUUID()
+      const { error: estError } = await supabase
         .from('establecimientos')
-        .insert({ nombre: nombreEstablecimiento.trim(), provincia: provincia.trim() || null })
-        .select('id')
-        .single()
+        .insert({ id: estId, nombre: nombreEstablecimiento.trim(), provincia: provincia.trim() || null })
 
-      if (estError || !est) {
-        console.error('[Onboarding] Error al crear establecimiento:', estError?.message)
+      if (estError) {
+        console.error('[Onboarding] Error al crear establecimiento:', estError.message, '| code:', estError.code)
         setError('Error al crear el establecimiento. Intentá de nuevo.')
         return
       }
+      console.log('[Onboarding] Establecimiento creado — id:', estId)
 
       // Paso 2: crear perfil
       const { error: perfilError } = await supabase
         .from('perfil_usuarios')
         .insert({
           user_id: userId,
-          establecimiento_id: est.id,
+          establecimiento_id: estId,
           nombre_completo: nombreCompleto.trim(),
           rol: 'admin',
           avatar_iniciales: generarIniciales(nombreCompleto),
         })
 
       if (perfilError) {
-        console.error('[Onboarding] Error al crear perfil:', perfilError.message)
-        // Rollback
-        await supabase.from('establecimientos').delete().eq('id', est.id)
+        console.error('[Onboarding] Error al crear perfil:', perfilError.message, '| code:', perfilError.code)
+        // Rollback best-effort (puede fallar si no hay política DELETE)
+        await supabase.from('establecimientos').delete().eq('id', estId)
         setError('Error al configurar el perfil. Intentá de nuevo.')
         return
       }
