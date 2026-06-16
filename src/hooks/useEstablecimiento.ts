@@ -23,6 +23,7 @@ type Result = {
   perfil: Perfil | null
   establecimiento: Establecimiento | null
   loading: boolean
+  needsOnboarding: boolean
 }
 
 export function useEstablecimiento(): Result {
@@ -37,7 +38,6 @@ export function useEstablecimiento(): Result {
     let cancelled = false
 
     async function load() {
-      // getUser() valida el JWT con el servidor — más confiable que getSession()
       const { data: { user }, error: userErr } = await supabase.auth.getUser()
       if (cancelled) return
 
@@ -49,11 +49,12 @@ export function useEstablecimiento(): Result {
       setUserId(user.id)
       setUserEmail(user.email ?? null)
 
+      // maybeSingle() devuelve null sin error cuando no hay filas (evita 406)
       const { data: p, error: pErr } = await supabase
         .from('perfil_usuarios')
         .select('user_id, establecimiento_id, nombre_completo, rol, avatar_iniciales')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
 
       if (cancelled) return
 
@@ -63,6 +64,7 @@ export function useEstablecimiento(): Result {
         return
       }
       if (!p) {
+        // Usuario autenticado pero sin perfil → estado huérfano
         setLoading(false)
         return
       }
@@ -73,7 +75,7 @@ export function useEstablecimiento(): Result {
         .from('establecimientos')
         .select('id, nombre, provincia, superficie')
         .eq('id', p.establecimiento_id)
-        .single()
+        .maybeSingle()
 
       if (cancelled) return
 
@@ -88,7 +90,6 @@ export function useEstablecimiento(): Result {
 
     load()
 
-    // Solo escucha logout: el componente se remonta en cada navegación (flujo normal)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT' && !cancelled) {
         setUserId(null)
@@ -104,5 +105,7 @@ export function useEstablecimiento(): Result {
     }
   }, [])
 
-  return { userId, userEmail, perfil, establecimiento, loading }
+  const needsOnboarding = !loading && userId !== null && perfil === null
+
+  return { userId, userEmail, perfil, establecimiento, loading, needsOnboarding }
 }

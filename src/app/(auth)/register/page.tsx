@@ -30,7 +30,6 @@ export default function Register() {
     e.preventDefault()
     setError(null)
 
-    // Validación básica
     if (!nombreCompleto.trim() || !email.trim() || !password || !nombreEstablecimiento.trim()) {
       setError('Completá todos los campos obligatorios.')
       return
@@ -48,36 +47,52 @@ export default function Register() {
     try {
       const supabase = createClient()
 
-      // 1. Crear usuario en Supabase Auth
+      // ── Paso 1: Crear usuario ─────────────────────────────────────────────────
+      console.log('[Register] Paso 1: signUp para', email.trim())
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
       })
+
       if (authError) {
+        console.error('[Register] signUp error:', authError.message, authError.status)
         setError('No se pudo crear la cuenta. Verificá que el email no esté en uso.')
         return
       }
 
       const user = authData.user
-      if (!user) {
-        // Supabase requiere confirmación de email
+      const session = authData.session
+      console.log('[Register] signUp ok — userId:', user?.id, '| hasSession:', !!session)
+
+      // Sin sesión = email confirmation requerida → no podemos hacer INSERTs
+      if (!user || !session) {
+        console.log('[Register] Sin sesión — email confirmation requerida')
         setConfirmacion(true)
         return
       }
 
-      // 2. Crear el establecimiento
+      // ── Paso 2: Crear establecimiento ─────────────────────────────────────────
+      console.log('[Register] Paso 2: creando establecimiento...')
       const { data: est, error: estError } = await supabase
         .from('establecimientos')
         .insert({ nombre: nombreEstablecimiento.trim(), provincia: provincia.trim() || null })
         .select('id')
         .single()
 
-      if (estError || !est) {
+      if (estError) {
+        console.error('[Register] Error al crear establecimiento:', estError.message, '| code:', estError.code)
+        setError('Error al crear el establecimiento. Revisá la consola para más detalles.')
+        return
+      }
+      if (!est) {
+        console.error('[Register] Establecimiento no creado — sin error pero sin data')
         setError('Error al crear el establecimiento. Intentá de nuevo.')
         return
       }
+      console.log('[Register] Establecimiento creado — id:', est.id)
 
-      // 3. Crear el perfil del usuario vinculado al establecimiento
+      // ── Paso 3: Crear perfil de usuario ───────────────────────────────────────
+      console.log('[Register] Paso 3: creando perfil_usuarios...')
       const iniciales = generarIniciales(nombreCompleto)
       const { error: perfilError } = await supabase
         .from('perfil_usuarios')
@@ -90,13 +105,20 @@ export default function Register() {
         })
 
       if (perfilError) {
-        setError('Error al configurar el perfil. Intentá iniciar sesión.')
+        console.error('[Register] Error al crear perfil:', perfilError.message, '| code:', perfilError.code)
+        // Rollback: eliminar el establecimiento recién creado
+        const { error: delErr } = await supabase.from('establecimientos').delete().eq('id', est.id)
+        if (delErr) console.warn('[Register] No se pudo hacer rollback del establecimiento:', delErr.message)
+        else console.log('[Register] Rollback del establecimiento ok')
+        setError('Error al configurar el perfil. Intentá de nuevo.')
         return
       }
 
+      console.log('[Register] ✓ Registro completo — redirigiendo a /dashboard')
       router.push('/dashboard')
       router.refresh()
-    } catch {
+    } catch (err) {
+      console.error('[Register] Error inesperado:', err)
       setError('Error inesperado. Intentá de nuevo.')
     } finally {
       setLoading(false)
@@ -114,8 +136,10 @@ export default function Register() {
           </div>
           <h2 className="text-base font-semibold text-carbon mb-2">Revisá tu email</h2>
           <p className="text-sm text-gris">
-            Te enviamos un link de confirmación a <strong className="text-carbon">{email}</strong>.
-            Hacé clic en el link para activar tu cuenta.
+            Te enviamos un link de confirmación a{' '}
+            <strong className="text-carbon">{email}</strong>.
+            Hacé clic en el link para activar tu cuenta y luego completá la configuración desde{' '}
+            <Link href="/onboarding" className="text-verde font-medium hover:underline">acá</Link>.
           </p>
           <Link href="/login" className="inline-block mt-6 text-sm text-verde font-medium hover:underline">
             Volver al inicio de sesión
@@ -140,7 +164,6 @@ export default function Register() {
         <p className="text-sm text-gris mt-0.5">Gestión agropecuaria</p>
       </div>
 
-      {/* Card */}
       <div className="bg-white rounded-2xl border border-borde shadow-sm p-6">
         <h2 className="text-base font-semibold text-carbon mb-5">Crear cuenta</h2>
 
@@ -151,7 +174,6 @@ export default function Register() {
         )}
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
-          {/* Tu cuenta */}
           <p className="text-[10px] font-semibold uppercase tracking-wider text-gris">Tu cuenta</p>
 
           <div>
@@ -210,7 +232,6 @@ export default function Register() {
             </div>
           </div>
 
-          {/* Tu establecimiento */}
           <p className="text-[10px] font-semibold uppercase tracking-wider text-gris pt-2">Tu establecimiento</p>
 
           <div>
