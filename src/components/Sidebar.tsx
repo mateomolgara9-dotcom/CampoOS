@@ -4,8 +4,9 @@ import Link from 'next/link'
 import {
   Home, PawPrint, Map, Package, Wrench,
   Receipt, Calculator, Users, Antenna,
-  Settings, ShoppingCart, UserCircle, Car
+  Settings, ShoppingCart, UserCircle, Car,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import clsx from 'clsx'
 
 const navItems = [
@@ -32,7 +33,7 @@ const navItems3 = [
 export default function Sidebar() {
   const path = usePathname()
 
-  const NavItem = ({ href, icon: Icon, label }: { href:string, icon:any, label:string }) => {
+  const NavItem = ({ href, icon: Icon, label }: { href: string; icon: LucideIcon; label: string }) => {
     const active = path.startsWith(href)
     return (
       <Link href={href} title={label}

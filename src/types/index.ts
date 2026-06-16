@@ -1,13 +1,16 @@
+export type Categoria = 'Vaca' | 'Toro' | 'Novillo' | 'Vaquillona' | 'Ternero' | 'Ternera'
+export type EstadoSanitario = 'Al día' | 'Vacuna vencida' | 'Vacuna próxima' | 'Sin RFID'
+
 export type Animal = {
   id: string
   caravana: string
   caravana_interna?: string
-  categoria: 'Vaca' | 'Toro' | 'Novillo' | 'Vaquillona' | 'Ternero' | 'Ternera'
+  categoria: Categoria
   raza?: string
   potrero?: string
   peso_actual?: number
   gdp?: number
-  estado_sanitario: 'Al día' | 'Vacuna vencida' | 'Vacuna próxima' | 'Sin RFID'
+  estado_sanitario: EstadoSanitario
   tiene_rfid: boolean
   fecha_nacimiento?: string
   observaciones?: string
