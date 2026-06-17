@@ -1,10 +1,12 @@
 'use client'
-import { useState } from 'react'
-import { Search, Plus, Package, AlertTriangle, Filter, X, ChevronDown } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, Plus, Package, AlertTriangle, X } from 'lucide-react'
 import Topbar from '@/components/Topbar'
+import { createClient } from '@/lib/supabase'
+import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
-type Categoria ='Agroquimico' | 'Semilla' | 'Fertilizante' | 'Veterinario' | 'Herramienta' | 'Combustible' | 'Lubricante' | 'Otro'
+type Categoria = 'Agroquimico' | 'Semilla' | 'Fertilizante' | 'Veterinario' | 'Herramienta' | 'Combustible' | 'Lubricante' | 'Otro'
 type EstadoStock = 'ok' | 'bajo' | 'critico'
 
 type Producto = {
@@ -22,21 +24,7 @@ type Producto = {
   codigo?: string
 }
 
-// ── Datos de ejemplo ──────────────────────────────────────────────────────────
-const PRODUCTOS: Producto[] = [
-  { id:'1', nombre:'Glifosato 48%',         categoria:'Agroquimico',  marca:'Monsanto',   unidad:'litros',  stock:180,  stock_minimo:50,  stock_maximo:400, precio_unitario:4.2,  deposito:'Deposito principal', vencimiento:'2026-12-01', codigo:'GLI-001' },
-  { id:'2', nombre:'2,4-D Amina 72%',        categoria:'Agroquimico',  marca:'Dow',        unidad:'litros',  stock:45,   stock_minimo:40,  stock_maximo:200, precio_unitario:5.8,  deposito:'Deposito principal', vencimiento:'2026-08-15', codigo:'2D4-002' },
-  { id:'3', nombre:'Semilla Maiz DK7500',    categoria:'Semilla',      marca:'Dekalb',     unidad:'kg',      stock:850,  stock_minimo:200, stock_maximo:2000,precio_unitario:8.5,  deposito:'Silo 1',             vencimiento:'2026-09-01', codigo:'SEM-003' },
-  { id:'4', nombre:'Semilla Soja DM4214',    categoria:'Semilla',      marca:'Don Mario',  unidad:'kg',      stock:1200, stock_minimo:500, stock_maximo:3000,precio_unitario:6.2,  deposito:'Silo 1',             vencimiento:'2026-11-01', codigo:'SEM-004' },
-  { id:'5', nombre:'Urea granulada',         categoria:'Fertilizante', marca:'YPF Agro',   unidad:'kg',      stock:2800, stock_minimo:500, stock_maximo:5000,precio_unitario:0.85, deposito:'Silo 2',             codigo:'FER-005' },
-  { id:'6', nombre:'Ivermectina 1%',         categoria:'Veterinario',  marca:'Coopers',    unidad:'litros',  stock:8,    stock_minimo:10,  stock_maximo:50,  precio_unitario:28.0, deposito:'Deposito vet.',      vencimiento:'2027-03-01', codigo:'VET-006' },
-  { id:'7', nombre:'Vacuna Aftosa bivalente',categoria:'Veterinario',  marca:'Biogenesis', unidad:'dosis',   stock:150,  stock_minimo:200, stock_maximo:600, precio_unitario:1.8,  deposito:'Camara fria',        vencimiento:'2026-07-01', codigo:'VET-007' },
-  { id:'8', nombre:'Gas oil',                categoria:'Combustible',  marca:'YPF',        unidad:'litros',  stock:3200, stock_minimo:1000,stock_maximo:8000,precio_unitario:1.05, deposito:'Tanque campo',       codigo:'COM-008' },
-  { id:'9', nombre:'Aceite motor 15W40',     categoria:'Lubricante',   marca:'Mobil',      unidad:'litros',  stock:24,   stock_minimo:20,  stock_maximo:100, precio_unitario:12.0, deposito:'Taller',             codigo:'LUB-009' },
-  { id:'10',nombre:'Herbicida Atrazina 50%', categoria:'Agroquimico',  marca:'Nufarm',     unidad:'litros',  stock:22,   stock_minimo:30,  stock_maximo:150, precio_unitario:7.4,  deposito:'Deposito principal', vencimiento:'2026-10-01', codigo:'AGR-010' },
-]
-
-const CATEGORIAS: Categoria[] = ['Agroquimico','Semilla','Fertilizante','Veterinario','Herramienta','Combustible','Otro']
+const CATEGORIAS: Categoria[] = ['Agroquimico','Semilla','Fertilizante','Veterinario','Herramienta','Combustible','Lubricante','Otro']
 const DEPOSITOS = ['Deposito principal','Silo 1','Silo 2','Deposito vet.','Camara fria','Tanque campo','Taller']
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -85,27 +73,74 @@ function isVencProximo(d?: string) {
 }
 
 // ── Formulario nuevo producto ──────────────────────────────────────────────────
-function FormNuevo({ onClose, onSave }: { onClose: () => void, onSave: (p: Producto) => void }) {
+function FormNuevo({
+  establecimientoId,
+  onClose,
+  onSuccess,
+}: {
+  establecimientoId: string
+  onClose: () => void
+  onSuccess: (p: Producto) => void
+}) {
   const [form, setForm] = useState({
     nombre: '', categoria: 'Agroquimico' as Categoria, marca: '',
     unidad: 'litros', stock: '', stock_minimo: '', stock_maximo: '',
-    precio_unitario: '', deposito: 'Deposito principal', vencimiento: '', codigo: ''
+    precio_unitario: '', deposito: 'Deposito principal', vencimiento: '', codigo: '',
   })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  function handleSave() {
-    if (!form.nombre || !form.stock) return
-    const nuevo: Producto = {
-      id: Date.now().toString(),
-      nombre: form.nombre, categoria: form.categoria, marca: form.marca,
-      unidad: form.unidad, stock: Number(form.stock),
-      stock_minimo: Number(form.stock_minimo) || 0,
-      stock_maximo: Number(form.stock_maximo) || 9999,
-      precio_unitario: Number(form.precio_unitario) || 0,
-      deposito: form.deposito,
-      vencimiento: form.vencimiento || undefined,
-      codigo: form.codigo || undefined,
+  async function handleSave() {
+    if (!form.nombre.trim() || !form.stock) return
+    setSaving(true)
+    setError(null)
+    try {
+      const supabase = createClient()
+      const id = crypto.randomUUID()
+      const { error: dbError } = await supabase
+        .from('productos_inventario')
+        .insert({
+          id,
+          establecimiento_id: establecimientoId,
+          nombre: form.nombre.trim(),
+          categoria: form.categoria,
+          marca: form.marca.trim() || null,
+          unidad: form.unidad,
+          stock: Number(form.stock),
+          stock_minimo: Number(form.stock_minimo) || 0,
+          stock_maximo: Number(form.stock_maximo) || null,
+          precio_unitario: Number(form.precio_unitario) || null,
+          deposito: form.deposito || null,
+          vencimiento: form.vencimiento || null,
+          codigo: form.codigo.trim() || null,
+        })
+
+      if (dbError) {
+        console.error('[Inventario] Error al guardar:', dbError.message, dbError.code)
+        setError('No se pudo guardar el producto. Intentá de nuevo.')
+        return
+      }
+
+      onSuccess({
+        id,
+        nombre: form.nombre.trim(),
+        categoria: form.categoria,
+        marca: form.marca.trim(),
+        unidad: form.unidad,
+        stock: Number(form.stock),
+        stock_minimo: Number(form.stock_minimo) || 0,
+        stock_maximo: Number(form.stock_maximo) || 9999,
+        precio_unitario: Number(form.precio_unitario) || 0,
+        deposito: form.deposito,
+        vencimiento: form.vencimiento || undefined,
+        codigo: form.codigo.trim() || undefined,
+      })
+    } catch (err) {
+      console.error('[Inventario] Error inesperado:', err)
+      setError('Error inesperado. Intentá de nuevo.')
+    } finally {
+      setSaving(false)
     }
-    onSave(nuevo)
   }
 
   const inp = "w-full text-xs border border-borde rounded-lg px-3 py-2 bg-white text-carbon outline-none focus:border-verde-act transition-colors"
@@ -124,6 +159,11 @@ function FormNuevo({ onClose, onSave }: { onClose: () => void, onSave: (p: Produ
           </button>
         </div>
         <div className="p-5 grid grid-cols-2 gap-3 max-h-[70vh] overflow-y-auto">
+          {error && (
+            <div role="alert" className="col-span-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">
+              {error}
+            </div>
+          )}
           <div className="col-span-2">
             <label className={lbl}>Nombre del producto *</label>
             <input className={inp} placeholder="ej. Glifosato 48%" value={form.nombre}
@@ -150,7 +190,7 @@ function FormNuevo({ onClose, onSave }: { onClose: () => void, onSave: (p: Produ
             <label className={lbl}>Unidad</label>
             <select className={inp} value={form.unidad}
               onChange={e => setForm({...form, unidad: e.target.value})}>
-              {['litros','kg','unidades','dosis','bolsas','tn'].map(u => <option key={u}>{u}</option>)}
+              {['litros','kg','unidades','dosis','bolsas','tn','bidon'].map(u => <option key={u}>{u}</option>)}
             </select>
           </div>
           <div>
@@ -187,13 +227,13 @@ function FormNuevo({ onClose, onSave }: { onClose: () => void, onSave: (p: Produ
           </div>
         </div>
         <div className="px-5 py-4 border-t border-borde flex justify-end gap-2">
-          <button onClick={onClose}
-            className="text-xs font-medium px-4 py-2 rounded-lg border border-borde text-carbon hover:bg-tierra transition-colors">
+          <button onClick={onClose} disabled={saving}
+            className="text-xs font-medium px-4 py-2 rounded-lg border border-borde text-carbon hover:bg-tierra transition-colors disabled:opacity-50">
             Cancelar
           </button>
-          <button onClick={handleSave}
-            className="text-xs font-semibold px-4 py-2 rounded-lg bg-verde-act text-white hover:bg-verde transition-colors">
-            Guardar producto
+          <button onClick={handleSave} disabled={saving}
+            className="text-xs font-semibold px-4 py-2 rounded-lg bg-verde-act text-white hover:bg-verde transition-colors disabled:opacity-60">
+            {saving ? 'Guardando...' : 'Guardar producto'}
           </button>
         </div>
       </div>
@@ -213,7 +253,7 @@ function PanelDetalle({ prod, onClose }: { prod: Producto, onClose: () => void }
       <div className="bg-verde px-4 py-3 flex items-start justify-between">
         <div>
           <p className="text-sm font-semibold text-white">{prod.nombre}</p>
-          <p className="text-xs text-white/60 mt-0.5">{prod.marca} · {prod.codigo || 'Sin codigo'}</p>
+          <p className="text-xs text-white/60 mt-0.5">{prod.marca || 'Sin marca'} · {prod.codigo || 'Sin codigo'}</p>
           <span className="mt-1.5 inline-block chip" style={{background:'rgba(255,255,255,.15)',color:'#fff'}}>
             {prod.categoria}
           </span>
@@ -254,9 +294,9 @@ function PanelDetalle({ prod, onClose }: { prod: Producto, onClose: () => void }
           <p className="text-[10px] font-semibold uppercase tracking-wider text-gris mb-2">Informacion</p>
           <div className="grid grid-cols-2 gap-2">
             {[
-              ['Deposito', prod.deposito],
-              ['Precio unit.', 'USD ' + prod.precio_unitario],
-              ['Valor total', 'USD ' + (prod.stock * prod.precio_unitario).toLocaleString(undefined, {maximumFractionDigits:0})],
+              ['Deposito', prod.deposito || '—'],
+              ['Precio unit.', prod.precio_unitario ? 'USD ' + prod.precio_unitario : '—'],
+              ['Valor total', prod.precio_unitario ? 'USD ' + (prod.stock * prod.precio_unitario).toLocaleString(undefined, {maximumFractionDigits:0}) : '—'],
               ['Vencimiento', formatDate(prod.vencimiento)],
             ].map(([l, v]) => (
               <div key={l} className="bg-tierra rounded-lg p-2">
@@ -288,12 +328,65 @@ function PanelDetalle({ prod, onClose }: { prod: Producto, onClose: () => void }
 
 // ── Pagina principal ───────────────────────────────────────────────────────────
 export default function Inventario() {
-  const [productos, setProductos] = useState<Producto[]>(PRODUCTOS)
+  const { establecimiento, loading: loadingEst } = useEstablecimiento()
+  const [productos, setProductos] = useState<Producto[]>([])
+  const [loadingProd, setLoadingProd] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [catFiltro, setCatFiltro] = useState<string>('Todos')
   const [soloAlertas, setSoloAlertas] = useState(false)
   const [seleccionado, setSeleccionado] = useState<Producto | null>(null)
   const [mostrarForm, setMostrarForm] = useState(false)
+
+  useEffect(() => {
+    if (!establecimiento?.id) return
+
+    let cancelled = false
+    async function cargar() {
+      setLoadingProd(true)
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('productos_inventario')
+        .select('*')
+        .eq('establecimiento_id', establecimiento!.id)
+        .order('nombre')
+
+      if (cancelled) return
+      if (error) {
+        console.error('[Inventario] Error al cargar:', error.message)
+        setLoadingProd(false)
+        return
+      }
+
+      const mapped: Producto[] = (data ?? []).map(p => ({
+        id: p.id as string,
+        nombre: p.nombre as string,
+        categoria: p.categoria as Categoria,
+        marca: (p.marca ?? '') as string,
+        unidad: p.unidad as string,
+        stock: Number(p.stock),
+        stock_minimo: Number(p.stock_minimo),
+        stock_maximo: p.stock_maximo != null ? Number(p.stock_maximo) : 9999,
+        precio_unitario: p.precio_unitario != null ? Number(p.precio_unitario) : 0,
+        deposito: (p.deposito ?? '') as string,
+        vencimiento: p.vencimiento ?? undefined,
+        codigo: p.codigo ?? undefined,
+      }))
+
+      setProductos(mapped)
+      setLoadingProd(false)
+    }
+
+    cargar()
+    return () => { cancelled = true }
+  }, [establecimiento?.id])
+
+  const loading = loadingEst || loadingProd
+
+  function handleSuccess(p: Producto) {
+    setProductos(prev => [...prev, p].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+    setMostrarForm(false)
+    setSeleccionado(p)
+  }
 
   const filtrados = productos.filter(p => {
     const matchBusqueda = p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -308,12 +401,6 @@ export default function Inventario() {
   const valorTotal = productos.reduce((acc, p) => acc + p.stock * p.precio_unitario, 0)
   const vencProximos = productos.filter(p => isVencProximo(p.vencimiento)).length
 
-  function handleSave(p: Producto) {
-    setProductos(prev => [...prev, p])
-    setMostrarForm(false)
-    setSeleccionado(p)
-  }
-
   const actions = (
     <div className="flex gap-2">
       <button
@@ -324,19 +411,36 @@ export default function Inventario() {
     </div>
   )
 
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <Topbar title="Inventario" actions={actions}/>
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-sm text-gris">Cargando inventario...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {mostrarForm && <FormNuevo onClose={() => setMostrarForm(false)} onSave={handleSave}/>}
+      {mostrarForm && establecimiento && (
+        <FormNuevo
+          establecimientoId={establecimiento.id}
+          onClose={() => setMostrarForm(false)}
+          onSuccess={handleSuccess}
+        />
+      )}
       <Topbar title="Inventario" actions={actions}/>
       <div className="flex-1 overflow-y-auto p-4">
 
         {/* KPIs */}
         <div className="grid grid-cols-4 gap-2.5 mb-4">
           {[
-            { l:'Total productos',    v: productos.length.toString(), s:'en todos los depositos',    c:'border-t-verde-ac' },
-            { l:'Alertas de stock',   v: alertas.toString(),          s:'requieren atencion',         c: alertas > 0 ? 'border-t-rojo' : 'border-t-verde-ac' },
-            { l:'Venc. proximos',     v: vencProximos.toString(),     s:'menos de 60 dias',           c: vencProximos > 0 ? 'border-t-ambar' : 'border-t-verde-ac' },
-            { l:'Valor total stock',  v:'USD ' + Math.round(valorTotal).toLocaleString(), s:'valuacion al costo', c:'border-t-azul' },
+            { l:'Total productos',   v: productos.length.toString(), s:'en todos los depositos',    c:'border-t-verde-ac' },
+            { l:'Alertas de stock',  v: alertas.toString(),          s:'requieren atencion',         c: alertas > 0 ? 'border-t-rojo' : 'border-t-verde-ac' },
+            { l:'Venc. proximos',    v: vencProximos.toString(),     s:'menos de 60 dias',           c: vencProximos > 0 ? 'border-t-ambar' : 'border-t-verde-ac' },
+            { l:'Valor total stock', v:'USD ' + Math.round(valorTotal).toLocaleString(), s:'valuacion al costo', c:'border-t-azul' },
           ].map(({ l, v, s, c }) => (
             <div key={l} className={"bg-white border border-borde rounded-xl p-3 border-t-2 " + c}>
               <div className="text-[10px] text-gris mb-1 uppercase tracking-wide font-medium">{l}</div>
@@ -355,7 +459,6 @@ export default function Inventario() {
               className="text-xs outline-none bg-transparent flex-1 text-carbon placeholder:text-gris"/>
           </div>
 
-          {/* Categorias */}
           <div className="flex gap-1.5 flex-wrap">
             {['Todos', 'Agroquimico', 'Semilla', 'Fertilizante', 'Veterinario', 'Combustible'].map(cat => (
               <button key={cat}
@@ -381,76 +484,87 @@ export default function Inventario() {
           </span>
         </div>
 
-        {/* Tabla + panel */}
-        <div className={"grid gap-3 " + (seleccionado ? 'grid-cols-[1fr_300px]' : 'grid-cols-1')}>
+        {/* Sin productos */}
+        {productos.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Package size={40} className="text-borde mb-3"/>
+            <p className="text-sm font-medium text-carbon mb-1">No hay productos en el inventario</p>
+            <p className="text-xs text-gris">Usá el botón <strong>Nuevo producto</strong> para registrar el primer insumo</p>
+          </div>
+        ) : (
+          <div className={"grid gap-3 " + (seleccionado ? 'grid-cols-[1fr_300px]' : 'grid-cols-1')}>
 
-          {/* Tabla */}
-          <div className="bg-white border border-borde rounded-xl overflow-hidden">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-tierra border-b border-borde">
-                  {['Producto','Categoria','Deposito','Stock','Nivel','Precio unit.','Vencimiento','Estado'].map(h => (
-                    <th key={h} className="text-left px-3 py-2 font-medium text-gris whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-borde">
-                {filtrados.map(prod => {
-                  const estado = getEstado(prod)
-                  const pct = getPct(prod)
-                  const barColor = getBarColor(estado)
-                  const vencProx = isVencProximo(prod.vencimiento)
-                  return (
-                    <tr key={prod.id}
-                      onClick={() => setSeleccionado(seleccionado?.id === prod.id ? null : prod)}
-                      className={"cursor-pointer transition-colors hover:bg-tierra/50 " +
-                        (seleccionado?.id === prod.id ? 'bg-verde-s' : '')}>
-                      <td className="px-3 py-2">
-                        <p className="font-medium text-carbon">{prod.nombre}</p>
-                        <p className="text-[10px] text-gris">{prod.marca} {prod.codigo ? '· ' + prod.codigo : ''}</p>
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className={getCatColor(prod.categoria)}>{prod.categoria}</span>
-                      </td>
-                      <td className="px-3 py-2 text-gris">{prod.deposito}</td>
-                      <td className="px-3 py-2 font-medium text-carbon whitespace-nowrap">
-                        {prod.stock.toLocaleString()} {prod.unidad}
-                      </td>
-                      <td className="px-3 py-2 min-w-[80px]">
-                        <div className="w-full bg-tierra rounded-full h-1.5">
-                          <div className={"h-1.5 rounded-full " + barColor} style={{width: pct + '%'}}/>
-                        </div>
-                        <p className="text-[10px] text-gris mt-0.5">{pct}%</p>
-                      </td>
-                      <td className="px-3 py-2 text-carbon">USD {prod.precio_unitario}</td>
-                      <td className={"px-3 py-2 " + (vencProx ? 'text-ambar font-medium' : 'text-gris')}>
-                        {formatDate(prod.vencimiento)}
-                        {vencProx && <span className="ml-1">⚠</span>}
-                      </td>
-                      <td className="px-3 py-2">
-                        {estado === 'critico' && <span className="chip chip-red">Critico</span>}
-                        {estado === 'bajo'    && <span className="chip chip-amber">Bajo</span>}
-                        {estado === 'ok'      && <span className="chip chip-green">OK</span>}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-            {filtrados.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Package size={32} className="text-borde mb-3"/>
-                <p className="text-sm font-medium text-carbon mb-1">No hay productos</p>
-                <p className="text-xs text-gris">Cambia los filtros o agrega un nuevo producto</p>
-              </div>
+            {/* Tabla */}
+            <div className="bg-white border border-borde rounded-xl overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-tierra border-b border-borde">
+                    {['Producto','Categoria','Deposito','Stock','Nivel','Precio unit.','Vencimiento','Estado'].map(h => (
+                      <th key={h} className="text-left px-3 py-2 font-medium text-gris whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-borde">
+                  {filtrados.map(prod => {
+                    const estado = getEstado(prod)
+                    const pct = getPct(prod)
+                    const barColor = getBarColor(estado)
+                    const vencProx = isVencProximo(prod.vencimiento)
+                    return (
+                      <tr key={prod.id}
+                        onClick={() => setSeleccionado(seleccionado?.id === prod.id ? null : prod)}
+                        className={"cursor-pointer transition-colors hover:bg-tierra/50 " +
+                          (seleccionado?.id === prod.id ? 'bg-verde-s' : '')}>
+                        <td className="px-3 py-2">
+                          <p className="font-medium text-carbon">{prod.nombre}</p>
+                          <p className="text-[10px] text-gris">{prod.marca} {prod.codigo ? '· ' + prod.codigo : ''}</p>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={getCatColor(prod.categoria)}>{prod.categoria}</span>
+                        </td>
+                        <td className="px-3 py-2 text-gris">{prod.deposito || '—'}</td>
+                        <td className="px-3 py-2 font-medium text-carbon whitespace-nowrap">
+                          {prod.stock.toLocaleString()} {prod.unidad}
+                        </td>
+                        <td className="px-3 py-2 min-w-[80px]">
+                          <div className="w-full bg-tierra rounded-full h-1.5">
+                            <div className={"h-1.5 rounded-full " + barColor} style={{width: pct + '%'}}/>
+                          </div>
+                          <p className="text-[10px] text-gris mt-0.5">{pct}%</p>
+                        </td>
+                        <td className="px-3 py-2 text-carbon">
+                          {prod.precio_unitario ? 'USD ' + prod.precio_unitario : '—'}
+                        </td>
+                        <td className={"px-3 py-2 " + (vencProx ? 'text-ambar font-medium' : 'text-gris')}>
+                          {formatDate(prod.vencimiento)}
+                          {vencProx && <span className="ml-1">⚠</span>}
+                        </td>
+                        <td className="px-3 py-2">
+                          {estado === 'critico' && <span className="chip chip-red">Critico</span>}
+                          {estado === 'bajo'    && <span className="chip chip-amber">Bajo</span>}
+                          {estado === 'ok'      && <span className="chip chip-green">OK</span>}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              {filtrados.length === 0 && productos.length > 0 && (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Package size={32} className="text-borde mb-3"/>
+                  <p className="text-sm font-medium text-carbon mb-1">No hay productos con ese filtro</p>
+                  <p className="text-xs text-gris">Cambia los filtros para ver otros productos</p>
+                </div>
+              )}
+            </div>
+
+            {/* Panel detalle */}
+            {seleccionado && (
+              <PanelDetalle prod={seleccionado} onClose={() => setSeleccionado(null)}/>
             )}
           </div>
+        )}
 
-          {/* Panel detalle */}
-          {seleccionado && (
-            <PanelDetalle prod={seleccionado} onClose={() => setSeleccionado(null)}/>
-          )}
-        </div>
       </div>
     </div>
   )
