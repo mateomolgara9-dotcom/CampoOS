@@ -215,11 +215,171 @@ function PanelDetalleMaquina({ maquina, onClose }: { maquina: Maquina, onClose: 
   )
 }
 
+// ── Formulario nueva máquina ───────────────────────────────────────────────────
+function FormNuevo({
+  establecimientoId,
+  onClose,
+  onSuccess,
+}: {
+  establecimientoId: string
+  onClose: () => void
+  onSuccess: (m: Maquina) => void
+}) {
+  const [form, setForm] = useState({
+    nombre: '', tipo: 'Tractor' as TipoMaquina, marca: '', modelo: '',
+    ano: '', patente: '', horometro: '0', horometro_proximo_service: '',
+    estado: 'Operativa' as EstadoMaquina,
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSave() {
+    if (!form.nombre.trim()) return
+    setSaving(true)
+    setError(null)
+    try {
+      const supabase = createClient()
+      const id = crypto.randomUUID()
+      const { error: dbError } = await supabase
+        .from('maquinas')
+        .insert({
+          id,
+          establecimiento_id: establecimientoId,
+          nombre: form.nombre.trim(),
+          tipo: form.tipo,
+          marca: form.marca.trim() || null,
+          modelo: form.modelo.trim() || null,
+          ano: form.ano ? Number(form.ano) : null,
+          patente: form.patente.trim() || null,
+          horometro: Number(form.horometro) || 0,
+          horometro_proximo_service: form.horometro_proximo_service
+            ? Number(form.horometro_proximo_service) : null,
+          estado: form.estado,
+        })
+
+      if (dbError) {
+        console.error('[Maquinaria] Error al guardar:', dbError.message, dbError.code)
+        setError('No se pudo guardar la máquina. Intentá de nuevo.')
+        return
+      }
+
+      onSuccess({
+        id,
+        nombre: form.nombre.trim(),
+        tipo: form.tipo,
+        marca: form.marca.trim(),
+        modelo: form.modelo.trim(),
+        ano: Number(form.ano) || 0,
+        patente: form.patente.trim() || undefined,
+        horometro: Number(form.horometro) || 0,
+        horometro_proximo_service: form.horometro_proximo_service
+          ? Number(form.horometro_proximo_service) : 0,
+        estado: form.estado,
+        mantenimientos: [],
+        cargas_combustible: [],
+      })
+    } catch (err) {
+      console.error('[Maquinaria] Error inesperado:', err)
+      setError('Error inesperado. Intentá de nuevo.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inp = "w-full text-xs border border-borde rounded-lg px-3 py-2 bg-white text-carbon outline-none focus:border-verde-act transition-colors"
+  const lbl = "text-[10px] font-semibold uppercase tracking-wider text-gris mb-1 block"
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="bg-verde px-5 py-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-white">Nueva máquina</p>
+            <p className="text-xs text-white/60 mt-0.5">Completá los datos del equipo</p>
+          </div>
+          <button onClick={onClose} className="text-white/60 hover:text-white transition-colors">
+            <X size={18}/>
+          </button>
+        </div>
+        <div className="p-5 grid grid-cols-2 gap-3 max-h-[70vh] overflow-y-auto">
+          {error && (
+            <div role="alert" className="col-span-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">
+              {error}
+            </div>
+          )}
+          <div className="col-span-2">
+            <label className={lbl}>Nombre del equipo *</label>
+            <input className={inp} placeholder="ej. JD 6130J" value={form.nombre}
+              onChange={e => setForm({...form, nombre: e.target.value})}/>
+          </div>
+          <div>
+            <label className={lbl}>Tipo *</label>
+            <select className={inp} value={form.tipo}
+              onChange={e => setForm({...form, tipo: e.target.value as TipoMaquina})}>
+              {(['Tractor','Cosechadora','Sembradora','Pulverizadora','Implemento','Camion','Otro'] as TipoMaquina[]).map(t =>
+                <option key={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={lbl}>Estado *</label>
+            <select className={inp} value={form.estado}
+              onChange={e => setForm({...form, estado: e.target.value as EstadoMaquina})}>
+              {(['Operativa','En mantenimiento','Fuera de servicio'] as EstadoMaquina[]).map(e =>
+                <option key={e}>{e}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={lbl}>Marca</label>
+            <input className={inp} placeholder="ej. John Deere" value={form.marca}
+              onChange={e => setForm({...form, marca: e.target.value})}/>
+          </div>
+          <div>
+            <label className={lbl}>Modelo</label>
+            <input className={inp} placeholder="ej. 6130J" value={form.modelo}
+              onChange={e => setForm({...form, modelo: e.target.value})}/>
+          </div>
+          <div>
+            <label className={lbl}>Año</label>
+            <input className={inp} type="number" placeholder="ej. 2020" value={form.ano}
+              onChange={e => setForm({...form, ano: e.target.value})}/>
+          </div>
+          <div>
+            <label className={lbl}>Patente</label>
+            <input className={inp} placeholder="ej. TR-AAA-001" value={form.patente}
+              onChange={e => setForm({...form, patente: e.target.value})}/>
+          </div>
+          <div>
+            <label className={lbl}>Horómetro inicial (hs)</label>
+            <input className={inp} type="number" placeholder="0" value={form.horometro}
+              onChange={e => setForm({...form, horometro: e.target.value})}/>
+          </div>
+          <div>
+            <label className={lbl}>Próximo service (hs)</label>
+            <input className={inp} type="number" placeholder="ej. 3000" value={form.horometro_proximo_service}
+              onChange={e => setForm({...form, horometro_proximo_service: e.target.value})}/>
+          </div>
+        </div>
+        <div className="px-5 py-4 border-t border-borde flex justify-end gap-2">
+          <button onClick={onClose} disabled={saving}
+            className="text-xs font-medium px-4 py-2 rounded-lg border border-borde text-carbon hover:bg-tierra transition-colors disabled:opacity-50">
+            Cancelar
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            className="text-xs font-semibold px-4 py-2 rounded-lg bg-verde-act text-white hover:bg-verde transition-colors disabled:opacity-60">
+            {saving ? 'Guardando...' : 'Guardar máquina'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Pagina principal ───────────────────────────────────────────────────────────
 export default function Maquinaria() {
   const { establecimiento, loading: loadingEst } = useEstablecimiento()
   const [maquinas, setMaquinas] = useState<Maquina[]>([])
   const [loadingMaq, setLoadingMaq] = useState(true)
+  const [mostrarForm, setMostrarForm] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<string>('Todos')
   const [soloAlertas, setSoloAlertas] = useState(false)
@@ -302,6 +462,12 @@ export default function Maquinaria() {
 
   const loading = loadingEst || loadingMaq
 
+  function handleSuccess(m: Maquina) {
+    setMaquinas(prev => [...prev, m].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+    setMostrarForm(false)
+    setSeleccionada(m)
+  }
+
   const filtradas = maquinas.filter(m => {
     const matchBusqueda = m.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
       m.marca.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -329,7 +495,9 @@ export default function Maquinaria() {
 
   const actions = (
     <div className="flex gap-2">
-      <button className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
+      <button
+        onClick={() => setMostrarForm(true)}
+        className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
         <Plus size={13}/> Nueva máquina
       </button>
     </div>
@@ -348,6 +516,13 @@ export default function Maquinaria() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {mostrarForm && establecimiento && (
+        <FormNuevo
+          establecimientoId={establecimiento.id}
+          onClose={() => setMostrarForm(false)}
+          onSuccess={handleSuccess}
+        />
+      )}
       <Topbar title="Maquinaria" actions={actions}/>
       <div className="flex-1 overflow-y-auto p-4">
 
