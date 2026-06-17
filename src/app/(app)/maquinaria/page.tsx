@@ -1,7 +1,9 @@
 'use client'
-import { useState } from 'react'
-import { Search, Plus, Wrench, Fuel, AlertTriangle, X, Calendar, Activity, Settings, TrendingUp } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, Plus, Wrench, AlertTriangle, X, Calendar } from 'lucide-react'
 import Topbar from '@/components/Topbar'
+import { createClient } from '@/lib/supabase'
+import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type TipoMaquina = 'Tractor' | 'Cosechadora' | 'Sembradora' | 'Pulverizadora' | 'Implemento' | 'Camion' | 'Otro'
@@ -44,108 +46,6 @@ type Maquina = {
   observaciones?: string
 }
 
-// ── Datos de ejemplo ──────────────────────────────────────────────────────────
-const MAQUINAS: Maquina[] = [
-  {
-    id:'1', nombre:'JD 6130J', tipo:'Tractor', marca:'John Deere', modelo:'6130J',
-    ano:2019, patente:'TR-AAA-001', horometro:2850, horometro_proximo_service:3000,
-    estado:'Operativa', combustible_actual:240, capacidad_tanque:340, consumo_promedio:12,
-    ultimo_service:'2026-02-15',
-    mantenimientos:[
-      { id:'m1', fecha:'2026-02-15', tipo:'Service',     detalle:'Cambio de aceite, filtros y revisión general', horometro:2700, costo:850,  operario:'Taller Garcia' },
-      { id:'m2', fecha:'2025-10-20', tipo:'Reparacion',  detalle:'Reparación de bomba hidráulica',               horometro:2350, costo:1200, operario:'Taller Garcia' },
-      { id:'m3', fecha:'2025-08-05', tipo:'Service',     detalle:'Service 2400 hs — Cambio aceite + filtros',    horometro:2400, costo:780,  operario:'Taller Garcia' },
-    ],
-    cargas_combustible:[
-      { fecha:'2026-05-20', litros:280, horometro:2845, costo:294 },
-      { fecha:'2026-05-10', litros:300, horometro:2810, costo:315 },
-      { fecha:'2026-04-28', litros:285, horometro:2768, costo:299 },
-    ],
-  },
-  {
-    id:'2', nombre:'JD 7230J', tipo:'Tractor', marca:'John Deere', modelo:'7230J Premium',
-    ano:2021, patente:'TR-AAA-002', horometro:1450, horometro_proximo_service:1500,
-    estado:'Operativa', combustible_actual:90, capacidad_tanque:420, consumo_promedio:15,
-    ultimo_service:'2026-03-10',
-    mantenimientos:[
-      { id:'m4', fecha:'2026-03-10', tipo:'Service', detalle:'Service rutinario 1200 hs', horometro:1200, costo:920, operario:'Concesionario JD' },
-    ],
-    cargas_combustible:[
-      { fecha:'2026-05-22', litros:330, horometro:1445, costo:347 },
-      { fecha:'2026-05-08', litros:350, horometro:1402, costo:368 },
-    ],
-  },
-  {
-    id:'3', nombre:'Case IH 8230', tipo:'Cosechadora', marca:'Case IH', modelo:'Axial-Flow 8230',
-    ano:2020, patente:'CO-BBB-003', horometro:1820, horometro_proximo_service:2000,
-    estado:'Operativa', combustible_actual:550, capacidad_tanque:680, consumo_promedio:35,
-    ultimo_service:'2025-12-15',
-    mantenimientos:[
-      { id:'m5', fecha:'2025-12-15', tipo:'Service',     detalle:'Service pre-cosecha completo',     horometro:1700, costo:2450, operario:'Concesionario Case' },
-      { id:'m6', fecha:'2025-11-10', tipo:'Preventivo',  detalle:'Cambio cuchillas + lubricación',   horometro:1620, costo:680,  operario:'Taller Garcia' },
-    ],
-    cargas_combustible:[
-      { fecha:'2026-04-15', litros:620, horometro:1810, costo:651 },
-      { fecha:'2026-04-05', litros:650, horometro:1772, costo:683 },
-    ],
-  },
-  {
-    id:'4', nombre:'Apache 24000', tipo:'Sembradora', marca:'Apache', modelo:'27500 Air Drill',
-    ano:2022, horometro:480, horometro_proximo_service:600,
-    estado:'Operativa',
-    ultimo_service:'2026-01-20',
-    mantenimientos:[
-      { id:'m7', fecha:'2026-01-20', tipo:'Service', detalle:'Service post-siembra + revisión completa', horometro:400, costo:1100, operario:'Apache servicio' },
-    ],
-    cargas_combustible:[],
-  },
-  {
-    id:'5', nombre:'Pla MAP 3000', tipo:'Pulverizadora', marca:'Pla', modelo:'MAP 3000',
-    ano:2018, patente:'PU-CCC-005', horometro:3650, horometro_proximo_service:3700,
-    estado:'En mantenimiento', combustible_actual:120, capacidad_tanque:280, consumo_promedio:18,
-    ultimo_service:'2025-11-20',
-    mantenimientos:[
-      { id:'m8', fecha:'2026-05-15', tipo:'Reparacion', detalle:'Reparación bomba de pulverización (en taller)', horometro:3640, costo:0, operario:'Taller especialista' },
-      { id:'m9', fecha:'2025-11-20', tipo:'Service',    detalle:'Service general',                               horometro:3400, costo:1450, operario:'Taller Garcia' },
-    ],
-    cargas_combustible:[
-      { fecha:'2026-05-05', litros:240, horometro:3625, costo:252 },
-    ],
-  },
-  {
-    id:'6', nombre:'JD 6130J #2', tipo:'Tractor', marca:'John Deere', modelo:'6130J',
-    ano:2017, patente:'TR-AAA-006', horometro:4980, horometro_proximo_service:5000,
-    estado:'Operativa', combustible_actual:180, capacidad_tanque:340, consumo_promedio:13,
-    ultimo_service:'2026-01-10',
-    mantenimientos:[
-      { id:'m10', fecha:'2026-01-10', tipo:'Service', detalle:'Service 4800 hs', horometro:4800, costo:920, operario:'Taller Garcia' },
-    ],
-    cargas_combustible:[
-      { fecha:'2026-05-18', litros:295, horometro:4975, costo:310 },
-    ],
-  },
-  {
-    id:'7', nombre:'Mercedes 1620', tipo:'Camion', marca:'Mercedes-Benz', modelo:'1620',
-    ano:2015, patente:'AC-987-PT', horometro:185000, horometro_proximo_service:190000,
-    estado:'Operativa', combustible_actual:140, capacidad_tanque:300, consumo_promedio:35,
-    ultimo_service:'2026-04-05',
-    mantenimientos:[
-      { id:'m11', fecha:'2026-04-05', tipo:'Service', detalle:'Service km 180.000 + cambio neumáticos', horometro:180000, costo:2800, operario:'Taller MB' },
-    ],
-    cargas_combustible:[
-      { fecha:'2026-05-19', litros:280, horometro:184800, costo:294 },
-    ],
-  },
-  {
-    id:'8', nombre:'Yomel TC', tipo:'Implemento', marca:'Yomel', modelo:'TC 200',
-    ano:2020, horometro:0, horometro_proximo_service:0,
-    estado:'Operativa',
-    mantenimientos:[],
-    cargas_combustible:[],
-    observaciones:'Implemento de transporte de granos, sin horómetro propio',
-  },
-]
-
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function getEstadoChip(e: EstadoMaquina) {
   const map: Record<EstadoMaquina, string> = {
@@ -156,15 +56,11 @@ function getEstadoChip(e: EstadoMaquina) {
   return map[e]
 }
 
-function getTipoIcon(t: TipoMaquina) {
-  return <Wrench size={14}/>
-}
-
 function getServiceStatus(m: Maquina) {
   if (m.horometro_proximo_service === 0) return 'sin-service'
   const diff = m.horometro_proximo_service - m.horometro
-  if (diff <= 0) return 'vencido'
-  if (diff <= 50) return 'urgente'
+  if (diff <= 0)   return 'vencido'
+  if (diff <= 50)  return 'urgente'
   if (diff <= 150) return 'proximo'
   return 'ok'
 }
@@ -178,14 +74,14 @@ function getServiceLabel(m: Maquina) {
 
 function formatDate(d?: string) {
   if (!d) return '—'
-  const [y, m, day] = d.split('-')
-  return `${day}/${m}/${y}`
+  const [y, mo, day] = d.split('-')
+  return `${day}/${mo}/${y}`
 }
 
 // ── Panel detalle ──────────────────────────────────────────────────────────────
 function PanelDetalleMaquina({ maquina, onClose }: { maquina: Maquina, onClose: () => void }) {
   const serviceStatus = getServiceStatus(maquina)
-  const tanquePct = maquina.combustible_actual && maquina.capacidad_tanque
+  const tanquePct = maquina.combustible_actual != null && maquina.capacidad_tanque
     ? Math.round((maquina.combustible_actual / maquina.capacidad_tanque) * 100)
     : 0
 
@@ -194,7 +90,7 @@ function PanelDetalleMaquina({ maquina, onClose }: { maquina: Maquina, onClose: 
       <div className="bg-verde px-4 py-3 flex items-start justify-between">
         <div className="flex-1">
           <p className="text-sm font-semibold text-white">{maquina.nombre}</p>
-          <p className="text-xs text-white/60 mt-0.5">{maquina.marca} {maquina.modelo} · {maquina.ano}</p>
+          <p className="text-xs text-white/60 mt-0.5">{maquina.marca} {maquina.modelo} · {maquina.ano || '—'}</p>
           <div className="flex gap-1.5 mt-1.5">
             <span className={getEstadoChip(maquina.estado)}>{maquina.estado}</span>
             <span className="chip" style={{background:'rgba(255,255,255,.15)',color:'#fff'}}>{maquina.tipo}</span>
@@ -204,7 +100,7 @@ function PanelDetalleMaquina({ maquina, onClose }: { maquina: Maquina, onClose: 
       </div>
 
       <div className="p-4 divide-y divide-borde">
-        {/* Horómetro destacado */}
+        {/* Horómetro */}
         <div className="pb-4">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-gris mb-2">Horómetro</p>
           <div className="flex items-end gap-2 mb-2">
@@ -238,7 +134,7 @@ function PanelDetalleMaquina({ maquina, onClose }: { maquina: Maquina, onClose: 
         </div>
 
         {/* Combustible */}
-        {maquina.combustible_actual !== undefined && maquina.capacidad_tanque && (
+        {maquina.combustible_actual != null && maquina.capacidad_tanque && (
           <div className="py-4">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-gris mb-2">Combustible</p>
             <div className="flex items-end gap-2 mb-2">
@@ -250,7 +146,10 @@ function PanelDetalleMaquina({ maquina, onClose }: { maquina: Maquina, onClose: 
                 (tanquePct > 50 ? 'bg-verde-act' : tanquePct > 25 ? 'bg-ambar' : 'bg-rojo')}
                 style={{width: tanquePct + '%'}}/>
             </div>
-            <p className="text-[10px] text-gris">{tanquePct}% del tanque · Consumo promedio: {maquina.consumo_promedio} L/h</p>
+            <p className="text-[10px] text-gris">
+              {tanquePct}% del tanque
+              {maquina.consumo_promedio ? ` · Consumo promedio: ${maquina.consumo_promedio} L/h` : ''}
+            </p>
           </div>
         )}
 
@@ -260,7 +159,7 @@ function PanelDetalleMaquina({ maquina, onClose }: { maquina: Maquina, onClose: 
           <div className="grid grid-cols-2 gap-2">
             {[
               ['Patente', maquina.patente || '—'],
-              ['Año', maquina.ano.toString()],
+              ['Año', maquina.ano ? maquina.ano.toString() : '—'],
               ['Último service', formatDate(maquina.ultimo_service)],
               ['Mantenimientos', maquina.mantenimientos.length.toString()],
             ].map(([l, v]) => (
@@ -289,13 +188,11 @@ function PanelDetalleMaquina({ maquina, onClose }: { maquina: Maquina, onClose: 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
                       <p className="text-[11px] font-semibold text-carbon">{m.tipo}</p>
-                      {m.costo > 0 && (
-                        <span className="text-[10px] text-gris">USD {m.costo}</span>
-                      )}
+                      {m.costo > 0 && <span className="text-[10px] text-gris">USD {m.costo}</span>}
                     </div>
                     <p className="text-[11px] text-gris">{m.detalle}</p>
                     <p className="text-[10px] text-gris mt-0.5">
-                      {formatDate(m.fecha)} · {m.horometro.toLocaleString()} hs
+                      {formatDate(m.fecha)}{m.horometro > 0 ? ` · ${m.horometro.toLocaleString()} hs` : ''}
                     </p>
                   </div>
                 </div>
@@ -320,37 +217,114 @@ function PanelDetalleMaquina({ maquina, onClose }: { maquina: Maquina, onClose: 
 
 // ── Pagina principal ───────────────────────────────────────────────────────────
 export default function Maquinaria() {
+  const { establecimiento, loading: loadingEst } = useEstablecimiento()
+  const [maquinas, setMaquinas] = useState<Maquina[]>([])
+  const [loadingMaq, setLoadingMaq] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<string>('Todos')
-  const [estadoFiltro, setEstadoFiltro] = useState<string>('Todos')
   const [soloAlertas, setSoloAlertas] = useState(false)
   const [seleccionada, setSeleccionada] = useState<Maquina | null>(null)
 
-  const filtradas = MAQUINAS.filter(m => {
+  useEffect(() => {
+    if (!establecimiento?.id) return
+
+    let cancelled = false
+    async function cargar() {
+      setLoadingMaq(true)
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('maquinas')
+        .select('*, mantenimientos(*), cargas_combustible(*)')
+        .eq('establecimiento_id', establecimiento!.id)
+        .order('nombre')
+
+      if (cancelled) return
+      if (error) {
+        console.error('[Maquinaria] Error al cargar:', error.message)
+        setLoadingMaq(false)
+        return
+      }
+
+      const mapped: Maquina[] = (data ?? []).map(m => {
+        // Ordenar mantenimientos por fecha DESC para mostrar los más recientes primero
+        const mans = ((m.mantenimientos ?? []) as Record<string, unknown>[])
+          .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)))
+          .map(man => ({
+            id: man.id as string,
+            fecha: man.fecha as string,
+            tipo: man.tipo as Mantenimiento['tipo'],
+            detalle: man.detalle as string,
+            horometro: man.horometro != null ? Number(man.horometro) : 0,
+            costo: Number(man.costo),
+            operario: (man.operario ?? '') as string,
+          }))
+
+        // Ordenar cargas por fecha DESC para que el KPI tome las últimas dos cargas correctamente
+        const cargas = ((m.cargas_combustible ?? []) as Record<string, unknown>[])
+          .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)))
+          .map(c => ({
+            fecha: c.fecha as string,
+            litros: Number(c.litros),
+            horometro: c.horometro != null ? Number(c.horometro) : 0,
+            costo: Number(c.costo),
+          }))
+
+        return {
+          id: m.id as string,
+          nombre: m.nombre as string,
+          tipo: m.tipo as TipoMaquina,
+          marca: (m.marca ?? '') as string,
+          modelo: (m.modelo ?? '') as string,
+          ano: (m.ano ?? 0) as number,
+          patente: m.patente ?? undefined,
+          horometro: Number(m.horometro),
+          // DB tiene nullable; UI usa 0 para indicar "sin service programado"
+          horometro_proximo_service: m.horometro_proximo_service != null
+            ? Number(m.horometro_proximo_service) : 0,
+          estado: m.estado as EstadoMaquina,
+          combustible_actual: m.combustible_actual != null ? Number(m.combustible_actual) : undefined,
+          capacidad_tanque: m.capacidad_tanque != null ? Number(m.capacidad_tanque) : undefined,
+          consumo_promedio: m.consumo_promedio != null ? Number(m.consumo_promedio) : undefined,
+          ultimo_service: m.ultimo_service ?? undefined,
+          observaciones: m.observaciones ?? undefined,
+          mantenimientos: mans,
+          cargas_combustible: cargas,
+        }
+      })
+
+      setMaquinas(mapped)
+      setLoadingMaq(false)
+    }
+
+    cargar()
+    return () => { cancelled = true }
+  }, [establecimiento?.id])
+
+  const loading = loadingEst || loadingMaq
+
+  const filtradas = maquinas.filter(m => {
     const matchBusqueda = m.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
       m.marca.toLowerCase().includes(busqueda.toLowerCase()) ||
       m.modelo.toLowerCase().includes(busqueda.toLowerCase())
     const matchTipo = tipoFiltro === 'Todos' || m.tipo === tipoFiltro
-    const matchEstado = estadoFiltro === 'Todos' || m.estado === estadoFiltro
     const status = getServiceStatus(m)
     const matchAlerta = !soloAlertas || status === 'vencido' || status === 'urgente' || m.estado !== 'Operativa'
-    return matchBusqueda && matchTipo && matchEstado && matchAlerta
+    return matchBusqueda && matchTipo && matchAlerta
   })
 
   // KPIs
-  const totalMaquinas = MAQUINAS.length
-  const operativas = MAQUINAS.filter(m => m.estado === 'Operativa').length
-  const alertasService = MAQUINAS.filter(m => {
+  const operativas = maquinas.filter(m => m.estado === 'Operativa').length
+  const alertasService = maquinas.filter(m => {
     const s = getServiceStatus(m)
     return s === 'vencido' || s === 'urgente'
   }).length
-  const horasMes = MAQUINAS.reduce((acc, m) => {
+  const horasMes = maquinas.reduce((acc, m) => {
     if (m.cargas_combustible.length < 2) return acc
     const ultima = m.cargas_combustible[0]
     const anteultima = m.cargas_combustible[1]
     return acc + Math.max(0, ultima.horometro - anteultima.horometro)
   }, 0)
-  const costoMantenimientos = MAQUINAS.reduce((acc, m) =>
+  const costoMantenimientos = maquinas.reduce((acc, m) =>
     acc + m.mantenimientos.reduce((sum, x) => sum + x.costo, 0), 0)
 
   const actions = (
@@ -361,6 +335,17 @@ export default function Maquinaria() {
     </div>
   )
 
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <Topbar title="Maquinaria" actions={actions}/>
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-sm text-gris">Cargando maquinaria...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar title="Maquinaria" actions={actions}/>
@@ -369,10 +354,10 @@ export default function Maquinaria() {
         {/* KPIs */}
         <div className="grid grid-cols-4 gap-2.5 mb-4">
           {[
-            { l:'Total equipos',          v: totalMaquinas.toString(),                                  s: operativas + ' operativas',                  c:'border-t-verde-ac' },
-            { l:'Alertas de service',     v: alertasService.toString(),                                 s:'requieren atención pronto',                   c: alertasService > 0 ? 'border-t-rojo' : 'border-t-verde-ac' },
-            { l:'Horas trabajadas',       v: horasMes.toString() + ' hs',                              s:'desde última carga combustible',              c:'border-t-azul' },
-            { l:'Costo mantenimiento',    v:'USD ' + costoMantenimientos.toLocaleString(),             s:'acumulado historial',                          c:'border-t-ambar' },
+            { l:'Total equipos',       v: maquinas.length.toString(),               s: operativas + ' operativas',             c:'border-t-verde-ac' },
+            { l:'Alertas de service',  v: alertasService.toString(),                 s:'requieren atención pronto',              c: alertasService > 0 ? 'border-t-rojo' : 'border-t-verde-ac' },
+            { l:'Horas trabajadas',    v: horasMes + ' hs',                          s:'desde última carga combustible',         c:'border-t-azul' },
+            { l:'Costo mantenimiento', v:'USD ' + costoMantenimientos.toLocaleString(), s:'acumulado historial',                 c:'border-t-ambar' },
           ].map(({ l, v, s, c }) => (
             <div key={l} className={"bg-white border border-borde rounded-xl p-3 border-t-2 " + c}>
               <div className="text-[10px] text-gris mb-1 uppercase tracking-wide font-medium">{l}</div>
@@ -413,85 +398,94 @@ export default function Maquinaria() {
           </span>
         </div>
 
-        {/* Tabla + Detalle */}
-        <div className={"grid gap-3 " + (seleccionada ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
+        {/* Sin máquinas */}
+        {maquinas.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Wrench size={40} className="text-borde mb-3"/>
+            <p className="text-sm font-medium text-carbon mb-1">No hay máquinas registradas</p>
+            <p className="text-xs text-gris">Usá el botón <strong>Nueva máquina</strong> para agregar el primer equipo</p>
+          </div>
+        ) : (
+          <div className={"grid gap-3 " + (seleccionada ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
 
-          {/* Tabla */}
-          <div className="bg-white border border-borde rounded-xl overflow-hidden">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-tierra border-b border-borde">
-                  {['Máquina','Tipo','Patente','Horómetro','Próx. service','Combustible','Estado'].map(h => (
-                    <th key={h} className="text-left px-3 py-2 font-medium text-gris">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-borde">
-                {filtradas.map(maquina => {
-                  const serviceStatus = getServiceStatus(maquina)
-                  const serviceLabel = getServiceLabel(maquina)
-                  const tanquePct = maquina.combustible_actual && maquina.capacidad_tanque
-                    ? Math.round((maquina.combustible_actual / maquina.capacidad_tanque) * 100)
-                    : null
-                  return (
-                    <tr key={maquina.id}
-                      onClick={() => setSeleccionada(seleccionada?.id === maquina.id ? null : maquina)}
-                      className={"cursor-pointer transition-colors hover:bg-tierra/50 " +
-                        (seleccionada?.id === maquina.id ? 'bg-verde-s' : '')}>
-                      <td className="px-3 py-2">
-                        <p className="font-medium text-carbon">{maquina.nombre}</p>
-                        <p className="text-[10px] text-gris">{maquina.marca} {maquina.modelo}</p>
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="chip chip-blue">{maquina.tipo}</span>
-                      </td>
-                      <td className="px-3 py-2 text-gris font-mono">{maquina.patente || '—'}</td>
-                      <td className="px-3 py-2 font-medium text-carbon whitespace-nowrap">
-                        {maquina.horometro.toLocaleString()} hs
-                      </td>
-                      <td className="px-3 py-2">
-                        {serviceStatus === 'vencido' && <span className="chip chip-red">VENCIDO</span>}
-                        {serviceStatus === 'urgente' && <span className="chip chip-red">{serviceLabel}</span>}
-                        {serviceStatus === 'proximo' && <span className="chip chip-amber">{serviceLabel}</span>}
-                        {serviceStatus === 'ok'      && <span className="chip chip-green">{serviceLabel}</span>}
-                        {serviceStatus === 'sin-service' && <span className="text-gris">—</span>}
-                      </td>
-                      <td className="px-3 py-2 min-w-[100px]">
-                        {tanquePct !== null ? (
-                          <div>
-                            <div className="w-full bg-tierra rounded-full h-1.5">
-                              <div className={"h-1.5 rounded-full " +
-                                (tanquePct > 50 ? 'bg-verde-act' : tanquePct > 25 ? 'bg-ambar' : 'bg-rojo')}
-                                style={{width: tanquePct + '%'}}/>
+            {/* Tabla */}
+            <div className="bg-white border border-borde rounded-xl overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-tierra border-b border-borde">
+                    {['Máquina','Tipo','Patente','Horómetro','Próx. service','Combustible','Estado'].map(h => (
+                      <th key={h} className="text-left px-3 py-2 font-medium text-gris">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-borde">
+                  {filtradas.map(maquina => {
+                    const serviceStatus = getServiceStatus(maquina)
+                    const serviceLabel = getServiceLabel(maquina)
+                    const tanquePct = maquina.combustible_actual != null && maquina.capacidad_tanque
+                      ? Math.round((maquina.combustible_actual / maquina.capacidad_tanque) * 100)
+                      : null
+                    return (
+                      <tr key={maquina.id}
+                        onClick={() => setSeleccionada(seleccionada?.id === maquina.id ? null : maquina)}
+                        className={"cursor-pointer transition-colors hover:bg-tierra/50 " +
+                          (seleccionada?.id === maquina.id ? 'bg-verde-s' : '')}>
+                        <td className="px-3 py-2">
+                          <p className="font-medium text-carbon">{maquina.nombre}</p>
+                          <p className="text-[10px] text-gris">{maquina.marca} {maquina.modelo}</p>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="chip chip-blue">{maquina.tipo}</span>
+                        </td>
+                        <td className="px-3 py-2 text-gris font-mono">{maquina.patente || '—'}</td>
+                        <td className="px-3 py-2 font-medium text-carbon whitespace-nowrap">
+                          {maquina.horometro.toLocaleString()} hs
+                        </td>
+                        <td className="px-3 py-2">
+                          {serviceStatus === 'vencido'    && <span className="chip chip-red">VENCIDO</span>}
+                          {serviceStatus === 'urgente'    && <span className="chip chip-red">{serviceLabel}</span>}
+                          {serviceStatus === 'proximo'    && <span className="chip chip-amber">{serviceLabel}</span>}
+                          {serviceStatus === 'ok'         && <span className="chip chip-green">{serviceLabel}</span>}
+                          {serviceStatus === 'sin-service' && <span className="text-gris">—</span>}
+                        </td>
+                        <td className="px-3 py-2 min-w-[100px]">
+                          {tanquePct !== null ? (
+                            <div>
+                              <div className="w-full bg-tierra rounded-full h-1.5">
+                                <div className={"h-1.5 rounded-full " +
+                                  (tanquePct > 50 ? 'bg-verde-act' : tanquePct > 25 ? 'bg-ambar' : 'bg-rojo')}
+                                  style={{width: tanquePct + '%'}}/>
+                              </div>
+                              <p className="text-[10px] text-gris mt-0.5">{maquina.combustible_actual} L · {tanquePct}%</p>
                             </div>
-                            <p className="text-[10px] text-gris mt-0.5">{maquina.combustible_actual} L · {tanquePct}%</p>
-                          </div>
-                        ) : (
-                          <span className="text-gris text-[10px]">N/A</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className={getEstadoChip(maquina.estado)}>{maquina.estado}</span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-            {filtradas.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Wrench size={32} className="text-borde mb-3"/>
-                <p className="text-sm font-medium text-carbon mb-1">No hay equipos</p>
-                <p className="text-xs text-gris">Cambia los filtros o agrega una nueva máquina</p>
-              </div>
+                          ) : (
+                            <span className="text-gris text-[10px]">N/A</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={getEstadoChip(maquina.estado)}>{maquina.estado}</span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              {filtradas.length === 0 && maquinas.length > 0 && (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Wrench size={32} className="text-borde mb-3"/>
+                  <p className="text-sm font-medium text-carbon mb-1">No hay equipos con ese filtro</p>
+                  <p className="text-xs text-gris">Cambia los filtros para ver otros equipos</p>
+                </div>
+              )}
+            </div>
+
+            {/* Panel detalle */}
+            {seleccionada && (
+              <PanelDetalleMaquina maquina={seleccionada} onClose={() => setSeleccionada(null)}/>
             )}
           </div>
+        )}
 
-          {/* Panel detalle */}
-          {seleccionada && (
-            <PanelDetalleMaquina maquina={seleccionada} onClose={() => setSeleccionada(null)}/>
-          )}
-        </div>
       </div>
     </div>
   )
