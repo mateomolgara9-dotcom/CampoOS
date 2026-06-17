@@ -1,7 +1,9 @@
 'use client'
-import { useState } from 'react'
-import { Search, Plus, Map as MapIcon, Sprout, Calendar, Droplets, AlertTriangle, X, TrendingUp, Layers } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, Plus, Map as MapIcon, Sprout, Calendar, X, TrendingUp, Layers } from 'lucide-react'
 import Topbar from '@/components/Topbar'
+import { createClient } from '@/lib/supabase'
+import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type EstadoLote = 'Sembrado' | 'Barbecho' | 'Cosechado' | 'Con hacienda' | 'En preparacion'
@@ -12,7 +14,7 @@ type Labor = {
   fecha: string
   tipo: 'Siembra' | 'Fertilizacion' | 'Aplicacion' | 'Cosecha' | 'Pulverizacion' | 'Labranza'
   detalle: string
-  operario: string
+  operario?: string
   cantidad?: string
 }
 
@@ -36,79 +38,6 @@ type Lote = {
   labores: Labor[]
   observaciones?: string
 }
-
-// ── Datos de ejemplo ──────────────────────────────────────────────────────────
-const LOTES: Lote[] = [
-  {
-    id:'1', nombre:'El Sauce', superficie:120, uso:'Agricola', estado:'Sembrado',
-    cultivo_actual:'Maiz', variedad:'DK7500', fecha_siembra:'2025-10-15',
-    fecha_cosecha_estim:'2026-04-01', rendimiento_estim:9.5,
-    pos_x:8, pos_y:10, ancho:32, alto:24,
-    labores:[
-      { id:'l1', fecha:'2025-10-15', tipo:'Siembra',        detalle:'Maiz DK7500 a 70.000 semillas/ha', operario:'Miguel Ruiz', cantidad:'8.4 kg/ha' },
-      { id:'l2', fecha:'2025-11-20', tipo:'Fertilizacion',  detalle:'Urea granulada al voleo',           operario:'Miguel Ruiz', cantidad:'180 kg/ha' },
-      { id:'l3', fecha:'2026-01-10', tipo:'Aplicacion',     detalle:'Herbicida glifosato post-emergente', operario:'Carlos Diaz', cantidad:'3 L/ha' },
-    ],
-  },
-  {
-    id:'2', nombre:'La Lomada', superficie:185, uso:'Agricola', estado:'Sembrado',
-    cultivo_actual:'Soja', variedad:'DM4214', fecha_siembra:'2025-11-05',
-    fecha_cosecha_estim:'2026-04-20', rendimiento_estim:3.4,
-    pos_x:42, pos_y:12, ancho:38, alto:28,
-    labores:[
-      { id:'l4', fecha:'2025-11-05', tipo:'Siembra',     detalle:'Soja DM4214 grupo IV',           operario:'Miguel Ruiz', cantidad:'62 kg/ha' },
-      { id:'l5', fecha:'2025-12-15', tipo:'Aplicacion',  detalle:'Glifosato + insecticida',         operario:'Carlos Diaz', cantidad:'3 L/ha' },
-    ],
-  },
-  {
-    id:'3', nombre:'Potrero Norte', superficie:95, uso:'Ganadero', estado:'Con hacienda',
-    hacienda_actual:180,
-    pos_x:8, pos_y:38, ancho:28, alto:22,
-    labores:[
-      { id:'l6', fecha:'2026-02-01', tipo:'Labranza', detalle:'Movimiento de hacienda al potrero', operario:'Juan Garcia' },
-    ],
-  },
-  {
-    id:'4', nombre:'El Algarrobo', superficie:78, uso:'Agricola', estado:'Barbecho',
-    pos_x:82, pos_y:14, ancho:24, alto:20,
-    labores:[
-      { id:'l7', fecha:'2026-03-15', tipo:'Aplicacion', detalle:'Barbecho quimico — glifosato', operario:'Carlos Diaz', cantidad:'2.5 L/ha' },
-    ],
-  },
-  {
-    id:'5', nombre:'Tres Cruces', superficie:140, uso:'Mixto', estado:'Cosechado',
-    cultivo_actual:'Trigo', variedad:'Klein Liebre', fecha_siembra:'2025-06-10',
-    rendimiento_real:4.2,
-    pos_x:38, pos_y:42, ancho:36, alto:24,
-    labores:[
-      { id:'l8', fecha:'2025-06-10', tipo:'Siembra',  detalle:'Trigo Klein Liebre',         operario:'Miguel Ruiz', cantidad:'140 kg/ha' },
-      { id:'l9', fecha:'2025-12-05', tipo:'Cosecha',  detalle:'Cosecha trigo — 4.2 tn/ha',  operario:'Contratista', cantidad:'588 tn totales' },
-    ],
-  },
-  {
-    id:'6', nombre:'La Quebrada', superficie:62, uso:'Ganadero', estado:'Con hacienda',
-    hacienda_actual:95,
-    pos_x:78, pos_y:42, ancho:22, alto:20,
-    labores:[],
-  },
-  {
-    id:'7', nombre:'El Bajo', superficie:88, uso:'Agricola', estado:'En preparacion',
-    pos_x:8, pos_y:64, ancho:30, alto:18,
-    labores:[
-      { id:'l10', fecha:'2026-05-10', tipo:'Labranza', detalle:'Preparacion para siembra de soja', operario:'Miguel Ruiz' },
-    ],
-  },
-  {
-    id:'8', nombre:'San Antonio', superficie:155, uso:'Agricola', estado:'Sembrado',
-    cultivo_actual:'Maiz', variedad:'DK7210', fecha_siembra:'2025-10-22',
-    fecha_cosecha_estim:'2026-04-15', rendimiento_estim:10.2,
-    pos_x:42, pos_y:64, ancho:38, alto:22,
-    labores:[
-      { id:'l11', fecha:'2025-10-22', tipo:'Siembra',       detalle:'Maiz DK7210',     operario:'Miguel Ruiz', cantidad:'8.6 kg/ha' },
-      { id:'l12', fecha:'2025-12-01', tipo:'Fertilizacion', detalle:'Urea + UAN',       operario:'Miguel Ruiz', cantidad:'200 kg/ha' },
-    ],
-  },
-]
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function getEstadoColor(estado: EstadoLote) {
@@ -377,11 +306,74 @@ function PanelDetalleLote({ lote, onClose }: { lote: Lote, onClose: () => void }
 
 // ── Pagina principal ───────────────────────────────────────────────────────────
 export default function Lotes() {
+  const { establecimiento, loading: loadingEst } = useEstablecimiento()
+  const [lotes, setLotes] = useState<Lote[]>([])
+  const [loadingLotes, setLoadingLotes] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [estadoFiltro, setEstadoFiltro] = useState<string>('Todos')
-  const [seleccionado, setSeleccionado] = useState<Lote | null>(LOTES[0])
+  const [seleccionado, setSeleccionado] = useState<Lote | null>(null)
 
-  const filtrados = LOTES.filter(l => {
+  useEffect(() => {
+    if (!establecimiento?.id) return
+
+    let cancelled = false
+    async function cargar() {
+      setLoadingLotes(true)
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('lotes')
+        .select('*, labores(*)')
+        .eq('establecimiento_id', establecimiento!.id)
+        .order('nombre')
+
+      if (cancelled) return
+      if (error) {
+        console.error('[Lotes] Error al cargar:', error.message)
+        setLoadingLotes(false)
+        return
+      }
+
+      // PostgREST devuelve NUMERIC como string — normalizar a number
+      const mapped: Lote[] = (data ?? []).map(l => ({
+        id: l.id as string,
+        nombre: l.nombre as string,
+        superficie: Number(l.superficie),
+        uso: l.uso as TipoUso,
+        estado: l.estado as EstadoLote,
+        cultivo_actual: l.cultivo_actual ?? undefined,
+        variedad: l.variedad ?? undefined,
+        fecha_siembra: l.fecha_siembra ?? undefined,
+        fecha_cosecha_estim: l.fecha_cosecha_estim ?? undefined,
+        rendimiento_estim: l.rendimiento_estim != null ? Number(l.rendimiento_estim) : undefined,
+        rendimiento_real: l.rendimiento_real != null ? Number(l.rendimiento_real) : undefined,
+        hacienda_actual: l.hacienda_actual ?? undefined,
+        pos_x: Number(l.pos_x),
+        pos_y: Number(l.pos_y),
+        ancho: Number(l.ancho),
+        alto: Number(l.alto),
+        observaciones: l.observaciones ?? undefined,
+        labores: (l.labores ?? []).map((lab: Record<string, unknown>) => ({
+          id: lab.id as string,
+          fecha: lab.fecha as string,
+          tipo: lab.tipo as Labor['tipo'],
+          detalle: lab.detalle as string,
+          operario: (lab.operario ?? undefined) as string | undefined,
+          cantidad: (lab.cantidad ?? undefined) as string | undefined,
+        })),
+      }))
+
+      setLotes(mapped)
+      if (mapped.length > 0) setSeleccionado(mapped[0])
+      setLoadingLotes(false)
+    }
+
+    cargar()
+    return () => { cancelled = true }
+  }, [establecimiento?.id])
+
+  const loading = loadingEst || loadingLotes
+
+  const filtrados = lotes.filter(l => {
     const matchBusqueda = l.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
       (l.cultivo_actual || '').toLowerCase().includes(busqueda.toLowerCase())
     const matchEstado = estadoFiltro === 'Todos' || l.estado === estadoFiltro
@@ -389,12 +381,14 @@ export default function Lotes() {
   })
 
   // KPIs
-  const totalHa = LOTES.reduce((acc, l) => acc + l.superficie, 0)
-  const sembrados = LOTES.filter(l => l.estado === 'Sembrado').length
-  const haSembradas = LOTES.filter(l => l.estado === 'Sembrado').reduce((acc, l) => acc + l.superficie, 0)
-  const conHacienda = LOTES.filter(l => l.estado === 'Con hacienda').reduce((acc, l) => acc + (l.hacienda_actual || 0), 0)
-  const rendProm = (LOTES.filter(l => l.rendimiento_estim).reduce((acc, l) => acc + (l.rendimiento_estim || 0), 0) /
-                    LOTES.filter(l => l.rendimiento_estim).length || 0).toFixed(1)
+  const totalHa = lotes.reduce((acc, l) => acc + l.superficie, 0)
+  const sembrados = lotes.filter(l => l.estado === 'Sembrado').length
+  const haSembradas = lotes.filter(l => l.estado === 'Sembrado').reduce((acc, l) => acc + l.superficie, 0)
+  const conHacienda = lotes.filter(l => l.estado === 'Con hacienda').reduce((acc, l) => acc + (l.hacienda_actual || 0), 0)
+  const lotesConRend = lotes.filter(l => l.rendimiento_estim)
+  const rendProm = lotesConRend.length
+    ? (lotesConRend.reduce((acc, l) => acc + (l.rendimiento_estim || 0), 0) / lotesConRend.length).toFixed(1)
+    : '—'
 
   const actions = (
     <div className="flex gap-2">
@@ -404,6 +398,17 @@ export default function Lotes() {
     </div>
   )
 
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <Topbar title="Lotes y Cultivos" actions={actions}/>
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-sm text-gris">Cargando lotes...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar title="Lotes y Cultivos" actions={actions}/>
@@ -412,10 +417,10 @@ export default function Lotes() {
         {/* KPIs */}
         <div className="grid grid-cols-4 gap-2.5 mb-4">
           {[
-            { l:'Lotes totales',     v: LOTES.length.toString(),        s: totalHa + ' ha en total',          c:'border-t-verde-ac' },
-            { l:'Lotes sembrados',   v: sembrados.toString(),           s: haSembradas + ' ha activas',       c:'border-t-verde-ac' },
-            { l:'Hacienda en lotes', v: conHacienda.toString(),         s:'animales en pastoreo',             c:'border-t-azul' },
-            { l:'Rend. estimado',    v: rendProm + ' tn/ha',            s:'promedio de la campania',          c:'border-t-ambar' },
+            { l:'Lotes totales',     v: lotes.length.toString(),     s: totalHa + ' ha en total',     c:'border-t-verde-ac' },
+            { l:'Lotes sembrados',   v: sembrados.toString(),         s: haSembradas + ' ha activas',  c:'border-t-verde-ac' },
+            { l:'Hacienda en lotes', v: conHacienda.toString(),       s:'animales en pastoreo',        c:'border-t-azul' },
+            { l:'Rend. estimado',    v: rendProm === '—' ? '—' : rendProm + ' tn/ha', s:'promedio de la campania', c:'border-t-ambar' },
           ].map(({ l, v, s, c }) => (
             <div key={l} className={"bg-white border border-borde rounded-xl p-3 border-t-2 " + c}>
               <div className="text-[10px] text-gris mb-1 uppercase tracking-wide font-medium">{l}</div>
@@ -450,64 +455,76 @@ export default function Lotes() {
           </span>
         </div>
 
-        {/* Mapa + Detalle */}
-        <div className="grid grid-cols-[1fr_320px] gap-3 mb-4">
-          <MapaLotes lotes={filtrados} seleccionado={seleccionado} onSelect={setSeleccionado}/>
-          {seleccionado && <PanelDetalleLote lote={seleccionado} onClose={() => setSeleccionado(null)}/>}
-        </div>
-
-        {/* Tabla de lotes */}
-        <div className="bg-white border border-borde rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-borde flex items-center gap-2">
-            <Layers size={15} className="text-verde-act"/>
-            <h3 className="text-sm font-medium text-carbon">Listado de lotes</h3>
+        {/* Sin lotes */}
+        {lotes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <MapIcon size={40} className="text-borde mb-3"/>
+            <p className="text-sm font-medium text-carbon mb-1">No hay lotes cargados</p>
+            <p className="text-xs text-gris">Usá el botón <strong>Nuevo lote</strong> para agregar el primer lote del establecimiento</p>
           </div>
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="bg-tierra border-b border-borde">
-                {['Lote','Superficie','Estado','Cultivo','Variedad','Siembra','Rend.','Labores'].map(h => (
-                  <th key={h} className="text-left px-3 py-2 font-medium text-gris">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-borde">
-              {filtrados.map(lote => {
-                const colors = getEstadoColor(lote.estado)
-                return (
-                  <tr key={lote.id}
-                    onClick={() => setSeleccionado(lote)}
-                    className={"cursor-pointer transition-colors hover:bg-tierra/50 " +
-                      (seleccionado?.id === lote.id ? 'bg-verde-s' : '')}>
-                    <td className="px-3 py-2">
-                      <p className="font-medium text-carbon">{lote.nombre}</p>
-                      <p className="text-[10px] text-gris">Uso {lote.uso.toLowerCase()}</p>
-                    </td>
-                    <td className="px-3 py-2 font-medium text-carbon">{lote.superficie} ha</td>
-                    <td className="px-3 py-2"><span className={colors.chip}>{lote.estado}</span></td>
-                    <td className="px-3 py-2 text-carbon">{lote.cultivo_actual || '—'}</td>
-                    <td className="px-3 py-2 text-gris">{lote.variedad || '—'}</td>
-                    <td className="px-3 py-2 text-gris">{formatDate(lote.fecha_siembra)}</td>
-                    <td className="px-3 py-2 text-carbon">
-                      {lote.rendimiento_real
-                        ? <span className="text-ambar font-semibold">{lote.rendimiento_real} tn/ha</span>
-                        : lote.rendimiento_estim
-                          ? <span className="text-verde">~{lote.rendimiento_estim} tn/ha</span>
-                          : <span className="text-gris">—</span>}
-                    </td>
-                    <td className="px-3 py-2 text-gris">{lote.labores.length}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          {filtrados.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <MapIcon size={32} className="text-borde mb-3"/>
-              <p className="text-sm font-medium text-carbon mb-1">No hay lotes</p>
-              <p className="text-xs text-gris">Cambia los filtros o agrega un nuevo lote</p>
+        ) : (
+          <>
+            {/* Mapa + Detalle */}
+            <div className="grid grid-cols-[1fr_320px] gap-3 mb-4">
+              <MapaLotes lotes={filtrados} seleccionado={seleccionado} onSelect={setSeleccionado}/>
+              {seleccionado && <PanelDetalleLote lote={seleccionado} onClose={() => setSeleccionado(null)}/>}
             </div>
-          )}
-        </div>
+
+            {/* Tabla de lotes */}
+            <div className="bg-white border border-borde rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-borde flex items-center gap-2">
+                <Layers size={15} className="text-verde-act"/>
+                <h3 className="text-sm font-medium text-carbon">Listado de lotes</h3>
+              </div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-tierra border-b border-borde">
+                    {['Lote','Superficie','Estado','Cultivo','Variedad','Siembra','Rend.','Labores'].map(h => (
+                      <th key={h} className="text-left px-3 py-2 font-medium text-gris">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-borde">
+                  {filtrados.map(lote => {
+                    const colors = getEstadoColor(lote.estado)
+                    return (
+                      <tr key={lote.id}
+                        onClick={() => setSeleccionado(lote)}
+                        className={"cursor-pointer transition-colors hover:bg-tierra/50 " +
+                          (seleccionado?.id === lote.id ? 'bg-verde-s' : '')}>
+                        <td className="px-3 py-2">
+                          <p className="font-medium text-carbon">{lote.nombre}</p>
+                          <p className="text-[10px] text-gris">Uso {lote.uso.toLowerCase()}</p>
+                        </td>
+                        <td className="px-3 py-2 font-medium text-carbon">{lote.superficie} ha</td>
+                        <td className="px-3 py-2"><span className={colors.chip}>{lote.estado}</span></td>
+                        <td className="px-3 py-2 text-carbon">{lote.cultivo_actual || '—'}</td>
+                        <td className="px-3 py-2 text-gris">{lote.variedad || '—'}</td>
+                        <td className="px-3 py-2 text-gris">{formatDate(lote.fecha_siembra)}</td>
+                        <td className="px-3 py-2 text-carbon">
+                          {lote.rendimiento_real
+                            ? <span className="text-ambar font-semibold">{lote.rendimiento_real} tn/ha</span>
+                            : lote.rendimiento_estim
+                              ? <span className="text-verde">~{lote.rendimiento_estim} tn/ha</span>
+                              : <span className="text-gris">—</span>}
+                        </td>
+                        <td className="px-3 py-2 text-gris">{lote.labores.length}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              {filtrados.length === 0 && lotes.length > 0 && (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <MapIcon size={32} className="text-borde mb-3"/>
+                  <p className="text-sm font-medium text-carbon mb-1">No hay lotes con ese filtro</p>
+                  <p className="text-xs text-gris">Cambia los filtros para ver otros lotes</p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
       </div>
     </div>
   )
