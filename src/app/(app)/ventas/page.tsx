@@ -1,7 +1,9 @@
 'use client'
-import { useState } from 'react'
-import { Search, Plus, Receipt, TrendingUp, Calendar, X, FileText, Truck, Wheat, DollarSign } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, Plus, Receipt, TrendingUp, X, FileText, Truck, Wheat } from 'lucide-react'
 import Topbar from '@/components/Topbar'
+import { createClient } from '@/lib/supabase'
+import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type TipoVenta = 'Hacienda' | 'Granos' | 'Servicios'
@@ -36,72 +38,6 @@ type Venta = {
   observaciones?: string
   destino?: string
 }
-
-// ── Datos de ejemplo ──────────────────────────────────────────────────────────
-const VENTAS: Venta[] = [
-  {
-    id:'1', numero:'V-2026-0042', fecha:'2026-05-18', tipo:'Hacienda',
-    cliente:'Frigorifico Rioplatense S.A.', estado:'Liquidada',
-    categoria:'Novillos terminados', cabezas:120, peso_promedio:445, peso_total:53400,
-    precio_kg:2.85, total:152190, moneda:'USD', metodo_pago:'Transferencia',
-    fecha_pago:'2026-05-22', comisiones:4565, flete:2800,
-    destino:'Frigorifico Pilar, Buenos Aires',
-  },
-  {
-    id:'2', numero:'V-2026-0041', fecha:'2026-05-15', tipo:'Granos',
-    cliente:'Acopio La Reina S.R.L.', estado:'Liquidada',
-    producto:'Maiz', toneladas:380, precio_tonelada:185, lote_origen:'El Sauce',
-    total:70300, moneda:'USD', metodo_pago:'Transferencia',
-    fecha_pago:'2026-05-20', comisiones:2110, flete:3800,
-    destino:'Acopio Villa Maria',
-  },
-  {
-    id:'3', numero:'V-2026-0040', fecha:'2026-05-10', tipo:'Hacienda',
-    cliente:'Carniceria El Tropezon', estado:'Liquidada',
-    categoria:'Vacas de descarte', cabezas:18, peso_promedio:480, peso_total:8640,
-    precio_kg:1.95, total:16848, moneda:'USD', metodo_pago:'Cheque',
-    fecha_pago:'2026-05-15', flete:450,
-    destino:'Cordoba Capital',
-  },
-  {
-    id:'4', numero:'V-2026-0039', fecha:'2026-05-05', tipo:'Granos',
-    cliente:'Cargill Argentina S.A.', estado:'Confirmada',
-    producto:'Soja', toneladas:520, precio_tonelada:340, lote_origen:'La Lomada',
-    total:176800, moneda:'USD', metodo_pago:'Forward',
-    fecha_pago:'2026-06-15', comisiones:5304, flete:4200,
-    destino:'Puerto Rosario',
-  },
-  {
-    id:'5', numero:'V-2026-0038', fecha:'2026-04-28', tipo:'Hacienda',
-    cliente:'Frigorifico Quickfood', estado:'Liquidada',
-    categoria:'Terneros invernada', cabezas:85, peso_promedio:215, peso_total:18275,
-    precio_kg:3.20, total:58480, moneda:'USD', metodo_pago:'Transferencia',
-    fecha_pago:'2026-05-02', comisiones:1755, flete:1900,
-    destino:'San Jorge, Santa Fe',
-  },
-  {
-    id:'6', numero:'V-2026-0037', fecha:'2026-04-22', tipo:'Granos',
-    cliente:'ADM Argentina', estado:'Liquidada',
-    producto:'Trigo', toneladas:588, precio_tonelada:215, lote_origen:'Tres Cruces',
-    total:126420, moneda:'USD', metodo_pago:'Transferencia',
-    fecha_pago:'2026-04-28', comisiones:3793, flete:5200,
-    destino:'Puerto Bahia Blanca',
-  },
-  {
-    id:'7', numero:'V-2026-0036', fecha:'2026-05-25', tipo:'Hacienda',
-    cliente:'Mercado de Liniers', estado:'Pendiente',
-    categoria:'Novillos terminados', cabezas:64, peso_promedio:432, peso_total:27648,
-    precio_kg:2.92, total:80733, moneda:'USD', metodo_pago:'Transferencia',
-    destino:'Mercado de Liniers, CABA',
-  },
-  {
-    id:'8', numero:'V-2026-0035', fecha:'2026-05-20', tipo:'Servicios',
-    cliente:'Vecino — Estancia La Maria', estado:'Liquidada',
-    total:8500, moneda:'USD', metodo_pago:'Transferencia',
-    fecha_pago:'2026-05-22',
-    observaciones:'Servicio de cosecha — 50 ha de maiz a USD 170/ha',
-  },
-]
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function getEstadoChip(e: EstadoVenta) {
@@ -143,9 +79,12 @@ function getMesNombre(m: number) {
   return ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][m]
 }
 
+function hoy() {
+  return new Date().toISOString().split('T')[0]
+}
+
 // ── Grafico de ventas mensuales (SVG) ─────────────────────────────────────────
 function GraficoMensual({ ventas }: { ventas: Venta[] }) {
-  // Agrupar por mes (últimos 6 meses)
   const ahora = new Date()
   const meses: { mes: string, hacienda: number, granos: number, total: number }[] = []
 
@@ -308,7 +247,7 @@ function PanelDetalleVenta({ venta, onClose }: { venta: Venta, onClose: () => vo
           </div>
         )}
 
-        {/* Liquidación */}
+        {/* Liquidacion */}
         <div className="py-4">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-gris mb-2">Liquidacion</p>
           <div className="space-y-1.5 text-xs">
@@ -316,13 +255,13 @@ function PanelDetalleVenta({ venta, onClose }: { venta: Venta, onClose: () => vo
               <span className="text-gris">Subtotal bruto</span>
               <span className="font-medium text-carbon">{formatUSD(subtotal)}</span>
             </div>
-            {venta.comisiones && (
+            {!!venta.comisiones && (
               <div className="flex justify-between">
                 <span className="text-gris">Comisiones</span>
                 <span className="font-medium text-rojo">−{formatUSD(venta.comisiones)}</span>
               </div>
             )}
-            {venta.flete && (
+            {!!venta.flete && (
               <div className="flex justify-between">
                 <span className="text-gris">Flete</span>
                 <span className="font-medium text-rojo">−{formatUSD(venta.flete)}</span>
@@ -355,14 +294,383 @@ function PanelDetalleVenta({ venta, onClose }: { venta: Venta, onClose: () => vo
             </div>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
 
-        {/* Acciones */}
-        <div className="pt-4 flex flex-col gap-2">
-          <button className="w-full text-xs font-semibold bg-verde-act text-white py-2 rounded-lg hover:bg-verde transition-colors">
-            Ver liquidacion completa
+// ── Formulario nueva venta ─────────────────────────────────────────────────────
+function FormNuevaVenta({
+  establecimientoId,
+  onClose,
+  onSuccess,
+}: {
+  establecimientoId: string
+  onClose: () => void
+  onSuccess: (v: Venta) => void
+}) {
+  const [tipo, setTipo] = useState<TipoVenta>('Hacienda')
+  const [cliente, setCliente] = useState('')
+  const [fecha, setFecha] = useState(hoy())
+  const [estado, setEstado] = useState<EstadoVenta>('Pendiente')
+  const [metodoPago, setMetodoPago] = useState<MetodoPago>('Transferencia')
+  const [moneda, setMoneda] = useState<'USD' | 'ARS'>('USD')
+  const [fechaPago, setFechaPago] = useState('')
+  const [destino, setDestino] = useState('')
+  const [observaciones, setObservaciones] = useState('')
+  const [comisiones, setComisiones] = useState('')
+  const [flete, setFlete] = useState('')
+
+  // Hacienda
+  const [categoria, setCategoria] = useState('')
+  const [cabezas, setCabezas] = useState('')
+  const [pesoPromedio, setPesoPromedio] = useState('')
+  const [precioKg, setPrecioKg] = useState('')
+
+  // Granos
+  const [producto, setProducto] = useState('')
+  const [toneladas, setToneladas] = useState('')
+  const [precioTonelada, setPrecioTonelada] = useState('')
+  const [loteOrigen, setLoteOrigen] = useState('')
+
+  // Servicios
+  const [totalServicios, setTotalServicios] = useState('')
+
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function calcTotal(): number {
+    if (tipo === 'Hacienda') {
+      return (Number(cabezas) || 0) * (Number(pesoPromedio) || 0) * (Number(precioKg) || 0)
+    }
+    if (tipo === 'Granos') {
+      return (Number(toneladas) || 0) * (Number(precioTonelada) || 0)
+    }
+    return Number(totalServicios) || 0
+  }
+
+  const inputCls = 'w-full text-sm border border-borde rounded-lg px-3 py-2 outline-none focus:border-verde focus:ring-1 focus:ring-verde/20 bg-white text-carbon placeholder:text-gris'
+
+  async function handleSave() {
+    if (!cliente.trim()) { setError('El cliente es obligatorio.'); return }
+    if (tipo === 'Hacienda' && (!categoria.trim() || !cabezas || !pesoPromedio || !precioKg)) {
+      setError('Completá todos los campos de hacienda.'); return
+    }
+    if (tipo === 'Granos' && (!producto.trim() || !toneladas || !precioTonelada)) {
+      setError('Completá todos los campos de granos.'); return
+    }
+    if (tipo === 'Servicios' && !totalServicios) {
+      setError('Ingresá el total del servicio.'); return
+    }
+
+    setSaving(true)
+    setError(null)
+    try {
+      const supabase = createClient()
+
+      const { count } = await supabase
+        .from('ventas')
+        .select('*', { count: 'exact', head: true })
+        .eq('establecimiento_id', establecimientoId)
+      const year = new Date().getFullYear()
+      const numero = `V-${year}-${String((count ?? 0) + 1).padStart(4, '0')}`
+
+      const totalCalc = calcTotal()
+      const pesoTotal = tipo === 'Hacienda'
+        ? (Number(cabezas) || 0) * (Number(pesoPromedio) || 0)
+        : undefined
+
+      const id = crypto.randomUUID()
+      const row: Record<string, unknown> = {
+        id,
+        establecimiento_id: establecimientoId,
+        numero,
+        fecha,
+        tipo,
+        cliente: cliente.trim(),
+        estado,
+        total: totalCalc,
+        moneda,
+        metodo_pago: metodoPago,
+        fecha_pago: fechaPago || null,
+        destino: destino.trim() || null,
+        comisiones: comisiones ? Number(comisiones) : null,
+        flete: flete ? Number(flete) : null,
+        observaciones: tipo !== 'Hacienda' && tipo !== 'Granos' ? observaciones.trim() || null : observaciones.trim() || null,
+      }
+
+      if (tipo === 'Hacienda') {
+        row.categoria_hacienda = categoria.trim()
+        row.cabezas = Number(cabezas)
+        row.peso_promedio = Number(pesoPromedio)
+        row.peso_total = pesoTotal ?? null
+        row.precio_kg = Number(precioKg)
+      } else if (tipo === 'Granos') {
+        row.producto_grano = producto.trim()
+        row.toneladas = Number(toneladas)
+        row.precio_tonelada = Number(precioTonelada)
+        row.lote_origen = loteOrigen.trim() || null
+      }
+
+      const { error: dbError } = await supabase.from('ventas').insert(row)
+      if (dbError) {
+        if (dbError.code === '23505') {
+          setError(`El número ${numero} ya existe. Intentá de nuevo.`)
+        } else {
+          setError('Error al guardar la venta: ' + dbError.message)
+        }
+        return
+      }
+
+      const venta: Venta = {
+        id,
+        numero,
+        fecha,
+        tipo,
+        cliente: cliente.trim(),
+        estado,
+        total: totalCalc,
+        moneda,
+        metodo_pago: metodoPago,
+        fecha_pago: fechaPago || undefined,
+        destino: destino.trim() || undefined,
+        observaciones: observaciones.trim() || undefined,
+        comisiones: comisiones ? Number(comisiones) : undefined,
+        flete: flete ? Number(flete) : undefined,
+        ...(tipo === 'Hacienda' && {
+          categoria: categoria.trim(),
+          cabezas: Number(cabezas),
+          peso_promedio: Number(pesoPromedio),
+          peso_total: pesoTotal,
+          precio_kg: Number(precioKg),
+        }),
+        ...(tipo === 'Granos' && {
+          producto: producto.trim(),
+          toneladas: Number(toneladas),
+          precio_tonelada: Number(precioTonelada),
+          lote_origen: loteOrigen.trim() || undefined,
+        }),
+      }
+      onSuccess(venta)
+    } catch (err) {
+      setError('Error inesperado.')
+      console.error(err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const totalCalc = calcTotal()
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="bg-verde px-5 py-4 flex items-center justify-between rounded-t-2xl sticky top-0">
+          <div>
+            <h2 className="text-sm font-semibold text-white">Nueva venta</h2>
+            <p className="text-xs text-white/60 mt-0.5">Completá los datos de la operación</p>
+          </div>
+          <button onClick={onClose} className="text-white/50 hover:text-white"><X size={16}/></button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">{error}</div>
+          )}
+
+          {/* Tipo */}
+          <div>
+            <label className="block text-xs font-medium text-carbon mb-1.5">Tipo de venta *</label>
+            <div className="flex gap-2">
+              {(['Hacienda', 'Granos', 'Servicios'] as TipoVenta[]).map(t => (
+                <button key={t} type="button"
+                  onClick={() => setTipo(t)}
+                  className={"flex-1 text-xs py-2 rounded-lg border font-medium transition-colors " +
+                    (tipo === t ? 'bg-verde text-white border-verde' : 'bg-white border-borde text-carbon hover:bg-tierra')}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Cliente */}
+          <div>
+            <label className="block text-xs font-medium text-carbon mb-1.5">Cliente *</label>
+            <input value={cliente} onChange={e => setCliente(e.target.value)}
+              placeholder="Nombre o razón social"
+              className={inputCls}/>
+          </div>
+
+          {/* Fecha y Estado */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Fecha *</label>
+              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className={inputCls}/>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Estado *</label>
+              <select value={estado} onChange={e => setEstado(e.target.value as EstadoVenta)} className={inputCls}>
+                {(['Pendiente','Confirmada','Liquidada','Cancelada'] as EstadoVenta[]).map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Hacienda */}
+          {tipo === 'Hacienda' && (
+            <div className="space-y-3 border border-borde rounded-xl p-3 bg-tierra/40">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gris">Detalle hacienda</p>
+              <div>
+                <label className="block text-xs font-medium text-carbon mb-1.5">Categoría *</label>
+                <input value={categoria} onChange={e => setCategoria(e.target.value)}
+                  placeholder="Novillos terminados, Vacas de descarte..."
+                  className={inputCls}/>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-carbon mb-1.5">Cabezas *</label>
+                  <input type="number" value={cabezas} onChange={e => setCabezas(e.target.value)}
+                    min="1" placeholder="0" className={inputCls}/>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-carbon mb-1.5">Peso prom. (kg) *</label>
+                  <input type="number" value={pesoPromedio} onChange={e => setPesoPromedio(e.target.value)}
+                    min="0" placeholder="0" className={inputCls}/>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-carbon mb-1.5">Precio/kg *</label>
+                  <input type="number" value={precioKg} onChange={e => setPrecioKg(e.target.value)}
+                    min="0" step="0.01" placeholder="0.00" className={inputCls}/>
+                </div>
+              </div>
+              {totalCalc > 0 && (
+                <div className="bg-verde-s rounded-lg px-3 py-2 text-xs text-verde font-medium">
+                  Peso total: {((Number(cabezas)||0) * (Number(pesoPromedio)||0)).toLocaleString()} kg · Total: {formatUSD(totalCalc)}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Granos */}
+          {tipo === 'Granos' && (
+            <div className="space-y-3 border border-borde rounded-xl p-3 bg-tierra/40">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gris">Detalle granos</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-carbon mb-1.5">Producto *</label>
+                  <input value={producto} onChange={e => setProducto(e.target.value)}
+                    placeholder="Soja, Maiz, Trigo..." className={inputCls}/>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-carbon mb-1.5">Lote de origen</label>
+                  <input value={loteOrigen} onChange={e => setLoteOrigen(e.target.value)}
+                    placeholder="Nombre del lote" className={inputCls}/>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-carbon mb-1.5">Toneladas *</label>
+                  <input type="number" value={toneladas} onChange={e => setToneladas(e.target.value)}
+                    min="0" step="0.01" placeholder="0.00" className={inputCls}/>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-carbon mb-1.5">Precio/tn *</label>
+                  <input type="number" value={precioTonelada} onChange={e => setPrecioTonelada(e.target.value)}
+                    min="0" step="0.01" placeholder="0.00" className={inputCls}/>
+                </div>
+              </div>
+              {totalCalc > 0 && (
+                <div className="bg-verde-s rounded-lg px-3 py-2 text-xs text-verde font-medium">
+                  Total: {formatUSD(totalCalc)}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Servicios */}
+          {tipo === 'Servicios' && (
+            <div className="space-y-3 border border-borde rounded-xl p-3 bg-tierra/40">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gris">Detalle servicio</p>
+              <div>
+                <label className="block text-xs font-medium text-carbon mb-1.5">Total *</label>
+                <input type="number" value={totalServicios} onChange={e => setTotalServicios(e.target.value)}
+                  min="0" step="0.01" placeholder="0.00" className={inputCls}/>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-carbon mb-1.5">Descripción</label>
+                <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)}
+                  placeholder="Describí el servicio prestado"
+                  rows={2}
+                  className="w-full text-sm border border-borde rounded-lg px-3 py-2 outline-none focus:border-verde focus:ring-1 focus:ring-verde/20 bg-white text-carbon placeholder:text-gris resize-none"/>
+              </div>
+            </div>
+          )}
+
+          {/* Pago */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Método de pago *</label>
+              <select value={metodoPago} onChange={e => setMetodoPago(e.target.value as MetodoPago)} className={inputCls}>
+                {(['Transferencia','Cheque','Efectivo','Forward'] as MetodoPago[]).map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Moneda *</label>
+              <select value={moneda} onChange={e => setMoneda(e.target.value as 'USD' | 'ARS')} className={inputCls}>
+                <option value="USD">USD</option>
+                <option value="ARS">ARS</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Opcionales */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Fecha de pago</label>
+              <input type="date" value={fechaPago} onChange={e => setFechaPago(e.target.value)} className={inputCls}/>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Destino</label>
+              <input value={destino} onChange={e => setDestino(e.target.value)}
+                placeholder="Ciudad / frigorífico..." className={inputCls}/>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Comisiones</label>
+              <input type="number" value={comisiones} onChange={e => setComisiones(e.target.value)}
+                min="0" step="0.01" placeholder="0.00" className={inputCls}/>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Flete</label>
+              <input type="number" value={flete} onChange={e => setFlete(e.target.value)}
+                min="0" step="0.01" placeholder="0.00" className={inputCls}/>
+            </div>
+          </div>
+
+          {tipo !== 'Servicios' && (
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Observaciones</label>
+              <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)}
+                placeholder="Notas adicionales..."
+                rows={2}
+                className="w-full text-sm border border-borde rounded-lg px-3 py-2 outline-none focus:border-verde focus:ring-1 focus:ring-verde/20 bg-white text-carbon placeholder:text-gris resize-none"/>
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 pb-5 flex gap-2">
+          <button onClick={onClose}
+            className="flex-1 text-sm font-medium border border-borde text-carbon py-2.5 rounded-lg hover:bg-tierra transition-colors">
+            Cancelar
           </button>
-          <button className="w-full text-xs font-medium border border-borde text-carbon py-2 rounded-lg hover:bg-tierra transition-colors">
-            Descargar comprobante
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 text-sm font-semibold bg-verde-act text-white py-2.5 rounded-lg hover:bg-verde transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+            {saving ? 'Guardando...' : 'Guardar venta'}
           </button>
         </div>
       </div>
@@ -372,12 +680,77 @@ function PanelDetalleVenta({ venta, onClose }: { venta: Venta, onClose: () => vo
 
 // ── Pagina principal ───────────────────────────────────────────────────────────
 export default function Ventas() {
+  const { establecimiento } = useEstablecimiento()
+  const [ventas, setVentas] = useState<Venta[]>([])
+  const [loadingVentas, setLoadingVentas] = useState(true)
+  const [mostrarForm, setMostrarForm] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<string>('Todos')
   const [estadoFiltro, setEstadoFiltro] = useState<string>('Todos')
   const [seleccionada, setSeleccionada] = useState<Venta | null>(null)
 
-  const filtradas = VENTAS.filter(v => {
+  useEffect(() => {
+    if (!establecimiento?.id) return
+    let cancelled = false
+
+    async function cargar() {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('ventas')
+        .select('*')
+        .eq('establecimiento_id', establecimiento!.id)
+        .order('fecha', { ascending: false })
+
+      if (cancelled) return
+      if (error) {
+        console.error('[Ventas] Error al cargar:', error.message)
+        setLoadingVentas(false)
+        return
+      }
+
+      const mapped: Venta[] = (data ?? []).map(v => ({
+        id: v.id as string,
+        numero: v.numero as string,
+        fecha: v.fecha as string,
+        tipo: v.tipo as TipoVenta,
+        cliente: v.cliente as string,
+        estado: v.estado as EstadoVenta,
+        total: Number(v.total),
+        moneda: v.moneda as 'USD' | 'ARS',
+        metodo_pago: v.metodo_pago as MetodoPago,
+        fecha_pago: v.fecha_pago ?? undefined,
+        destino: v.destino ?? undefined,
+        observaciones: v.observaciones ?? undefined,
+        comisiones: v.comisiones != null ? Number(v.comisiones) : undefined,
+        flete: v.flete != null ? Number(v.flete) : undefined,
+        // Hacienda
+        categoria: v.categoria_hacienda ?? undefined,
+        cabezas: v.cabezas != null ? Number(v.cabezas) : undefined,
+        peso_promedio: v.peso_promedio != null ? Number(v.peso_promedio) : undefined,
+        peso_total: v.peso_total != null ? Number(v.peso_total) : undefined,
+        precio_kg: v.precio_kg != null ? Number(v.precio_kg) : undefined,
+        // Granos
+        producto: v.producto_grano ?? undefined,
+        toneladas: v.toneladas != null ? Number(v.toneladas) : undefined,
+        precio_tonelada: v.precio_tonelada != null ? Number(v.precio_tonelada) : undefined,
+        lote_origen: v.lote_origen ?? undefined,
+      }))
+
+      setVentas(mapped)
+      setLoadingVentas(false)
+    }
+
+    cargar()
+    return () => { cancelled = true }
+  }, [establecimiento?.id])
+
+  function handleSuccess(v: Venta) {
+    setVentas(prev => [v, ...prev])
+    setMostrarForm(false)
+    setSeleccionada(v)
+  }
+
+  const filtradas = ventas.filter(v => {
     const matchBusqueda = v.numero.toLowerCase().includes(busqueda.toLowerCase()) ||
       v.cliente.toLowerCase().includes(busqueda.toLowerCase()) ||
       (v.producto || '').toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -388,16 +761,18 @@ export default function Ventas() {
   })
 
   // KPIs
-  const ventasLiquidadas = VENTAS.filter(v => v.estado === 'Liquidada')
+  const ventasLiquidadas = ventas.filter(v => v.estado === 'Liquidada')
   const totalAcumulado = ventasLiquidadas.reduce((acc, v) => acc + v.total, 0)
-  const pendientes = VENTAS.filter(v => v.estado === 'Pendiente' || v.estado === 'Confirmada')
+  const pendientes = ventas.filter(v => v.estado === 'Pendiente' || v.estado === 'Confirmada')
   const totalPendiente = pendientes.reduce((acc, v) => acc + v.total, 0)
   const cabezasVendidas = ventasLiquidadas.filter(v => v.tipo === 'Hacienda').reduce((acc, v) => acc + (v.cabezas || 0), 0)
   const tnVendidas = ventasLiquidadas.filter(v => v.tipo === 'Granos').reduce((acc, v) => acc + (v.toneladas || 0), 0)
 
   const actions = (
     <div className="flex gap-2">
-      <button className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
+      <button
+        onClick={() => setMostrarForm(true)}
+        className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
         <Plus size={13}/> Nueva venta
       </button>
     </div>
@@ -406,15 +781,24 @@ export default function Ventas() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar title="Ventas" actions={actions}/>
+
+      {mostrarForm && establecimiento && (
+        <FormNuevaVenta
+          establecimientoId={establecimiento.id}
+          onClose={() => setMostrarForm(false)}
+          onSuccess={handleSuccess}
+        />
+      )}
+
       <div className="flex-1 overflow-y-auto p-4">
 
         {/* KPIs */}
         <div className="grid grid-cols-4 gap-2.5 mb-4">
           {[
-            { l:'Vendido acumulado',    v: formatUSD(totalAcumulado),     s:'ventas liquidadas',         c:'border-t-verde-ac' },
-            { l:'Por cobrar',           v: formatUSD(totalPendiente),     s: pendientes.length + ' ventas pendientes', c:'border-t-ambar' },
-            { l:'Cabezas vendidas',     v: cabezasVendidas.toString(),    s:'en lo que va de la campania', c:'border-t-azul' },
-            { l:'Granos vendidos',      v: tnVendidas.toLocaleString() + ' tn', s:'todas las cosechas',  c:'border-t-azul' },
+            { l:'Vendido acumulado',    v: formatUSD(totalAcumulado),          s:'ventas liquidadas',              c:'border-t-verde-ac' },
+            { l:'Por cobrar',           v: formatUSD(totalPendiente),           s: pendientes.length + ' ventas pendientes', c:'border-t-ambar' },
+            { l:'Cabezas vendidas',     v: cabezasVendidas.toString(),          s:'en lo que va de la campania',    c:'border-t-azul' },
+            { l:'Granos vendidos',      v: tnVendidas.toLocaleString() + ' tn', s:'todas las cosechas',             c:'border-t-azul' },
           ].map(({ l, v, s, c }) => (
             <div key={l} className={"bg-white border border-borde rounded-xl p-3 border-t-2 " + c}>
               <div className="text-[10px] text-gris mb-1 uppercase tracking-wide font-medium">{l}</div>
@@ -426,7 +810,7 @@ export default function Ventas() {
 
         {/* Grafico + Detalle */}
         <div className={"grid gap-3 mb-4 " + (seleccionada ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
-          <GraficoMensual ventas={VENTAS}/>
+          <GraficoMensual ventas={ventas}/>
           {seleccionada && <PanelDetalleVenta venta={seleccionada} onClose={() => setSeleccionada(null)}/>}
         </div>
 
@@ -469,53 +853,68 @@ export default function Ventas() {
 
         {/* Tabla */}
         <div className="bg-white border border-borde rounded-xl overflow-hidden">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="bg-tierra border-b border-borde">
-                {['Comprobante','Fecha','Tipo','Cliente','Detalle','Total','Pago','Estado'].map(h => (
-                  <th key={h} className="text-left px-3 py-2 font-medium text-gris">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-borde">
-              {filtradas.map(venta => (
-                <tr key={venta.id}
-                  onClick={() => setSeleccionada(seleccionada?.id === venta.id ? null : venta)}
-                  className={"cursor-pointer transition-colors hover:bg-tierra/50 " +
-                    (seleccionada?.id === venta.id ? 'bg-verde-s' : '')}>
-                  <td className="px-3 py-2">
-                    <span className="font-mono text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
-                      {venta.numero}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-gris">{formatDate(venta.fecha)}</td>
-                  <td className="px-3 py-2">
-                    <span className="flex items-center gap-1.5 text-carbon">
-                      {getTipoIcon(venta.tipo)}
-                      <span className={getTipoChip(venta.tipo)}>{venta.tipo}</span>
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-carbon font-medium">{venta.cliente}</td>
-                  <td className="px-3 py-2 text-gris">
-                    {venta.tipo === 'Hacienda' && (venta.cabezas + ' ' + (venta.categoria?.toLowerCase() || ''))}
-                    {venta.tipo === 'Granos' && (venta.toneladas + ' tn ' + venta.producto)}
-                    {venta.tipo === 'Servicios' && (venta.observaciones?.substring(0, 35) + '...')}
-                  </td>
-                  <td className="px-3 py-2 font-semibold text-carbon">{formatUSD(venta.total)}</td>
-                  <td className="px-3 py-2 text-gris">{venta.metodo_pago}</td>
-                  <td className="px-3 py-2">
-                    <span className={getEstadoChip(venta.estado)}>{venta.estado}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {filtradas.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Receipt size={32} className="text-borde mb-3"/>
-              <p className="text-sm font-medium text-carbon mb-1">No hay ventas</p>
-              <p className="text-xs text-gris">Cambia los filtros o registra una nueva venta</p>
+          {loadingVentas ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-sm text-gris">Cargando ventas...</p>
             </div>
+          ) : (
+            <>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-tierra border-b border-borde">
+                    {['Comprobante','Fecha','Tipo','Cliente','Detalle','Total','Pago','Estado'].map(h => (
+                      <th key={h} className="text-left px-3 py-2 font-medium text-gris">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-borde">
+                  {filtradas.map(venta => (
+                    <tr key={venta.id}
+                      onClick={() => setSeleccionada(seleccionada?.id === venta.id ? null : venta)}
+                      className={"cursor-pointer transition-colors hover:bg-tierra/50 " +
+                        (seleccionada?.id === venta.id ? 'bg-verde-s' : '')}>
+                      <td className="px-3 py-2">
+                        <span className="font-mono text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
+                          {venta.numero}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-gris">{formatDate(venta.fecha)}</td>
+                      <td className="px-3 py-2">
+                        <span className="flex items-center gap-1.5 text-carbon">
+                          {getTipoIcon(venta.tipo)}
+                          <span className={getTipoChip(venta.tipo)}>{venta.tipo}</span>
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-carbon font-medium">{venta.cliente}</td>
+                      <td className="px-3 py-2 text-gris">
+                        {venta.tipo === 'Hacienda' && (venta.cabezas + ' ' + (venta.categoria?.toLowerCase() || ''))}
+                        {venta.tipo === 'Granos' && (venta.toneladas + ' tn ' + venta.producto)}
+                        {venta.tipo === 'Servicios' && ((venta.observaciones?.substring(0, 35) ?? '') + (venta.observaciones && venta.observaciones.length > 35 ? '...' : ''))}
+                      </td>
+                      <td className="px-3 py-2 font-semibold text-carbon">{formatUSD(venta.total)}</td>
+                      <td className="px-3 py-2 text-gris">{venta.metodo_pago}</td>
+                      <td className="px-3 py-2">
+                        <span className={getEstadoChip(venta.estado)}>{venta.estado}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {ventas.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Receipt size={32} className="text-borde mb-3"/>
+                  <p className="text-sm font-medium text-carbon mb-1">Todavía no hay ventas registradas</p>
+                  <p className="text-xs text-gris">Registrá tu primera venta con el botón "Nueva venta"</p>
+                </div>
+              )}
+              {ventas.length > 0 && filtradas.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Receipt size={32} className="text-borde mb-3"/>
+                  <p className="text-sm font-medium text-carbon mb-1">Sin resultados</p>
+                  <p className="text-xs text-gris">Cambiá los filtros para ver otras ventas</p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
