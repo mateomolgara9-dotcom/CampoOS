@@ -1,7 +1,9 @@
 'use client'
-import { useState } from 'react'
-import { Search, Plus, Users, X, Calendar, Phone, Mail, MapPin, FileText, AlertTriangle, DollarSign, Clock, Briefcase, Award } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, Plus, Users, X, Phone, Mail, MapPin, FileText, AlertTriangle } from 'lucide-react'
 import Topbar from '@/components/Topbar'
+import { createClient } from '@/lib/supabase'
+import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type TipoEmpleado = 'En blanco' | 'Jornalero' | 'Contratista' | 'Eventual'
@@ -28,124 +30,22 @@ type Empleado = {
   cargo: Cargo
   tipo: TipoEmpleado
   estado: EstadoEmpleado
-  // Contacto
   telefono?: string
   email?: string
   direccion?: string
   ciudad?: string
-  // Trabajo
   sueldo_basico?: number
   jornal_diario?: number
   dias_trabajados_mes?: number
-  // Documentos
   obra_social?: string
   art?: string
   art_vencimiento?: string
-  // Liquidaciones
   liquidaciones: Liquidacion[]
   observaciones?: string
 }
 
-// ── Datos de ejemplo ──────────────────────────────────────────────────────────
-const EMPLEADOS: Empleado[] = [
-  {
-    id:'e1', nombre:'Miguel Ruiz', dni:'27.458.963', cuil:'20-27458963-4',
-    fecha_nacimiento:'1979-03-15', fecha_ingreso:'2018-04-10',
-    cargo:'Encargado', tipo:'En blanco', estado:'Activo',
-    telefono:'+54 351 5847-321', email:'mruiz.encargado@gmail.com',
-    direccion:'Casa del campo - Sector vivienda', ciudad:'Villa Maria, Cordoba',
-    sueldo_basico:1800, dias_trabajados_mes:30,
-    obra_social:'OSPRERA', art:'Provincia ART', art_vencimiento:'2026-11-30',
-    liquidaciones:[
-      { id:'l1', mes:'Abril',  ano:2026, bruto:1800, descuentos:540, neto:1260, estado:'Pagada' },
-      { id:'l2', mes:'Marzo',  ano:2026, bruto:1800, descuentos:540, neto:1260, estado:'Pagada' },
-      { id:'l3', mes:'Febrero',ano:2026, bruto:1800, descuentos:540, neto:1260, estado:'Pagada' },
-    ],
-  },
-  {
-    id:'e2', nombre:'Carlos Diaz', dni:'32.145.678', cuil:'20-32145678-2',
-    fecha_nacimiento:'1985-07-22', fecha_ingreso:'2020-09-15',
-    cargo:'Tractorista', tipo:'En blanco', estado:'Activo',
-    telefono:'+54 351 5678-432', email:'cdiaz.tractor@gmail.com',
-    ciudad:'Villa Nueva, Cordoba',
-    sueldo_basico:1200, dias_trabajados_mes:26,
-    obra_social:'OSPRERA', art:'Provincia ART', art_vencimiento:'2026-11-30',
-    liquidaciones:[
-      { id:'l4', mes:'Abril', ano:2026, bruto:1200, descuentos:360, neto:840, estado:'Pagada' },
-      { id:'l5', mes:'Marzo', ano:2026, bruto:1200, descuentos:360, neto:840, estado:'Pagada' },
-    ],
-  },
-  {
-    id:'e3', nombre:'Juan Garcia', dni:'30.987.654', cuil:'20-30987654-1',
-    fecha_nacimiento:'1982-11-05', fecha_ingreso:'2019-06-01',
-    cargo:'Peon general', tipo:'En blanco', estado:'Activo',
-    telefono:'+54 351 4321-987',
-    ciudad:'Villa Maria, Cordoba',
-    sueldo_basico:850, dias_trabajados_mes:26,
-    obra_social:'OSPRERA', art:'Provincia ART', art_vencimiento:'2026-11-30',
-    liquidaciones:[
-      { id:'l6', mes:'Abril', ano:2026, bruto:850, descuentos:255, neto:595, estado:'Pagada' },
-    ],
-  },
-  {
-    id:'e4', nombre:'Sergio Vivas', dni:'25.789.456',
-    fecha_ingreso:'2024-04-01',
-    cargo:'Otro', tipo:'Contratista', estado:'Activo',
-    telefono:'+54 353 4789-456',
-    ciudad:'Villa Nueva, Cordoba',
-    liquidaciones:[
-      { id:'l7', mes:'Abril', ano:2026, bruto:24684, descuentos:0, neto:24684, estado:'Pagada' },
-    ],
-    observaciones:'Contratista de cosecha — facturacion por servicios prestados',
-  },
-  {
-    id:'e5', nombre:'Roberto Suarez', dni:'35.214.789',
-    fecha_ingreso:'2024-09-15',
-    cargo:'Peon general', tipo:'Jornalero', estado:'Activo',
-    telefono:'+54 351 6987-321',
-    ciudad:'Villa Maria, Cordoba',
-    jornal_diario:35, dias_trabajados_mes:18,
-    liquidaciones:[
-      { id:'l8', mes:'Abril', ano:2026, bruto:630, descuentos:0, neto:630, estado:'Pagada' },
-      { id:'l9', mes:'Marzo', ano:2026, bruto:560, descuentos:0, neto:560, estado:'Pagada' },
-    ],
-    observaciones:'Jornalero — pago semanal en efectivo',
-  },
-  {
-    id:'e6', nombre:'Dr. Martin Acosta', dni:'28.457.896', cuil:'20-28457896-5',
-    fecha_ingreso:'2022-01-10',
-    cargo:'Veterinario', tipo:'Contratista', estado:'Activo',
-    telefono:'+54 351 5847-321', email:'mvet.acosta@gmail.com',
-    ciudad:'Villa Maria, Cordoba',
-    liquidaciones:[
-      { id:'l10', mes:'Abril', ano:2026, bruto:600, descuentos:0, neto:600, estado:'Pagada' },
-      { id:'l11', mes:'Marzo', ano:2026, bruto:600, descuentos:0, neto:600, estado:'Pagada' },
-    ],
-    observaciones:'Asistencia veterinaria mensual — factura B',
-  },
-  {
-    id:'e7', nombre:'Maria Fernandez', dni:'33.987.123', cuil:'27-33987123-4',
-    fecha_nacimiento:'1988-05-12', fecha_ingreso:'2023-03-20',
-    cargo:'Otro', tipo:'En blanco', estado:'Licencia',
-    telefono:'+54 351 4567-890', email:'mfernandez@gmail.com',
-    ciudad:'Villa Maria, Cordoba',
-    sueldo_basico:900, dias_trabajados_mes:0,
-    obra_social:'OSPRERA', art:'Provincia ART', art_vencimiento:'2026-11-30',
-    liquidaciones:[],
-    observaciones:'Licencia por maternidad hasta agosto 2026',
-  },
-  {
-    id:'e8', nombre:'Andres Romero', dni:'40.789.321',
-    fecha_ingreso:'2025-11-01',
-    cargo:'Peon general', tipo:'Eventual', estado:'Activo',
-    telefono:'+54 351 7894-561',
-    jornal_diario:35, dias_trabajados_mes:8,
-    liquidaciones:[
-      { id:'l12', mes:'Abril', ano:2026, bruto:280, descuentos:0, neto:280, estado:'Pagada' },
-    ],
-    observaciones:'Eventual para epoca de siembra y cosecha',
-  },
-]
+const MESES_ORDEN = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function getTipoChip(t: TipoEmpleado) {
@@ -197,6 +97,10 @@ function getIniciales(nombre: string) {
   return nombre.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
 }
 
+function hoy() {
+  return new Date().toISOString().split('T')[0]
+}
+
 // ── Panel detalle empleado ────────────────────────────────────────────────────
 function PanelDetalleEmpleado({ e, onClose }: { e: Empleado, onClose: () => void }) {
   const artDias = diasHasta(e.art_vencimiento)
@@ -210,7 +114,7 @@ function PanelDetalleEmpleado({ e, onClose }: { e: Empleado, onClose: () => void
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-white">{e.nombre}</p>
-          <p className="text-[11px] text-white/60 mt-0.5">{e.cargo} · DNI {e.dni}</p>
+          <p className="text-[11px] text-white/60 mt-0.5">{e.cargo}{e.dni ? ' · DNI ' + e.dni : ''}</p>
           <div className="flex gap-1.5 mt-1.5 flex-wrap">
             <span className={getTipoChip(e.tipo)}>{e.tipo}</span>
             <span className={getEstadoChip(e.estado)}>{e.estado}</span>
@@ -238,7 +142,7 @@ function PanelDetalleEmpleado({ e, onClose }: { e: Empleado, onClose: () => void
         </div>
 
         {/* Remuneración */}
-        {(e.sueldo_basico || e.jornal_diario) && (
+        {!!(e.sueldo_basico || e.jornal_diario) && (
           <div className="py-4">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-gris mb-2">Remuneración</p>
             {e.sueldo_basico && (
@@ -307,7 +211,7 @@ function PanelDetalleEmpleado({ e, onClose }: { e: Empleado, onClose: () => void
         </div>
 
         {/* Cobertura */}
-        {(e.obra_social || e.art) && (
+        {!!(e.obra_social || e.art) && (
           <div className="py-4">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-gris mb-2">Cobertura social</p>
             <div className="space-y-2">
@@ -346,7 +250,7 @@ function PanelDetalleEmpleado({ e, onClose }: { e: Empleado, onClose: () => void
                   <div>
                     <p className="text-xs font-medium text-carbon">{l.mes} {l.ano}</p>
                     <p className="text-[10px] text-gris">
-                      Bruto {formatUSD(l.bruto)} {l.descuentos > 0 ? '· Desc ' + formatUSD(l.descuentos) : ''}
+                      Bruto {formatUSD(l.bruto)}{l.descuentos > 0 ? ' · Desc ' + formatUSD(l.descuentos) : ''}
                     </p>
                   </div>
                   <div className="text-right">
@@ -380,14 +284,369 @@ function PanelDetalleEmpleado({ e, onClose }: { e: Empleado, onClose: () => void
   )
 }
 
+// ── Formulario nuevo empleado ─────────────────────────────────────────────────
+function FormNuevoEmpleado({
+  establecimientoId,
+  onClose,
+  onSuccess,
+}: {
+  establecimientoId: string
+  onClose: () => void
+  onSuccess: (e: Empleado) => void
+}) {
+  const [nombre, setNombre] = useState('')
+  const [cargo, setCargo] = useState<Cargo>('Peon general')
+  const [tipo, setTipo] = useState<TipoEmpleado>('En blanco')
+  const [estado, setEstado] = useState<EstadoEmpleado>('Activo')
+  const [dni, setDni] = useState('')
+  const [cuil, setCuil] = useState('')
+  const [fechaIngreso, setFechaIngreso] = useState(hoy())
+  const [fechaNacimiento, setFechaNacimiento] = useState('')
+  const [sueldoBasico, setSueldoBasico] = useState('')
+  const [jornalDiario, setJornalDiario] = useState('')
+  const [diasTrabajados, setDiasTrabajados] = useState('')
+  const [telefono, setTelefono] = useState('')
+  const [email, setEmail] = useState('')
+  const [ciudad, setCiudad] = useState('')
+  const [direccion, setDireccion] = useState('')
+  const [obraSocial, setObraSocial] = useState('')
+  const [art, setArt] = useState('')
+  const [artVencimiento, setArtVencimiento] = useState('')
+  const [observaciones, setObservaciones] = useState('')
+
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const inputCls = 'w-full text-sm border border-borde rounded-lg px-3 py-2 outline-none focus:border-verde focus:ring-1 focus:ring-verde/20 bg-white text-carbon placeholder:text-gris'
+
+  async function handleSave() {
+    if (!nombre.trim()) { setError('El nombre es obligatorio.'); return }
+
+    setSaving(true)
+    setError(null)
+    try {
+      const supabase = createClient()
+      const id = crypto.randomUUID()
+
+      const { error: dbError } = await supabase.from('empleados').insert({
+        id,
+        establecimiento_id: establecimientoId,
+        nombre: nombre.trim(),
+        cargo,
+        tipo,
+        estado,
+        dni: dni.trim() || null,
+        cuil: cuil.trim() || null,
+        fecha_ingreso: fechaIngreso,
+        fecha_nacimiento: fechaNacimiento || null,
+        sueldo_basico: sueldoBasico ? Number(sueldoBasico) : null,
+        jornal_diario: jornalDiario ? Number(jornalDiario) : null,
+        dias_trabajados_mes: diasTrabajados ? Number(diasTrabajados) : null,
+        telefono: telefono.trim() || null,
+        email: email.trim() || null,
+        ciudad: ciudad.trim() || null,
+        direccion: direccion.trim() || null,
+        obra_social: obraSocial.trim() || null,
+        art: art.trim() || null,
+        art_vencimiento: artVencimiento || null,
+        observaciones: observaciones.trim() || null,
+      })
+
+      if (dbError) {
+        setError('Error al guardar: ' + dbError.message)
+        return
+      }
+
+      const empleado: Empleado = {
+        id,
+        nombre: nombre.trim(),
+        cargo,
+        tipo,
+        estado,
+        dni: dni.trim(),
+        cuil: cuil.trim() || undefined,
+        fecha_ingreso: fechaIngreso,
+        fecha_nacimiento: fechaNacimiento || undefined,
+        sueldo_basico: sueldoBasico ? Number(sueldoBasico) : undefined,
+        jornal_diario: jornalDiario ? Number(jornalDiario) : undefined,
+        dias_trabajados_mes: diasTrabajados ? Number(diasTrabajados) : undefined,
+        telefono: telefono.trim() || undefined,
+        email: email.trim() || undefined,
+        ciudad: ciudad.trim() || undefined,
+        direccion: direccion.trim() || undefined,
+        obra_social: obraSocial.trim() || undefined,
+        art: art.trim() || undefined,
+        art_vencimiento: artVencimiento || undefined,
+        observaciones: observaciones.trim() || undefined,
+        liquidaciones: [],
+      }
+      onSuccess(empleado)
+    } catch (err) {
+      setError('Error inesperado.')
+      console.error(err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="bg-verde px-5 py-4 flex items-center justify-between rounded-t-2xl sticky top-0">
+          <div>
+            <h2 className="text-sm font-semibold text-white">Nuevo empleado</h2>
+            <p className="text-xs text-white/60 mt-0.5">Completá los datos del personal</p>
+          </div>
+          <button onClick={onClose} className="text-white/50 hover:text-white"><X size={16}/></button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">{error}</div>
+          )}
+
+          {/* Nombre */}
+          <div>
+            <label className="block text-xs font-medium text-carbon mb-1.5">Nombre completo *</label>
+            <input value={nombre} onChange={e => setNombre(e.target.value)}
+              placeholder="Juan García"
+              className={inputCls}/>
+          </div>
+
+          {/* Cargo, Tipo, Estado */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Cargo *</label>
+              <select value={cargo} onChange={e => setCargo(e.target.value as Cargo)} className={inputCls}>
+                {(['Encargado','Tractorista','Peon general','Veterinario','Mecanico','Ordenador','Capataz','Otro'] as Cargo[]).map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Tipo *</label>
+              <select value={tipo} onChange={e => setTipo(e.target.value as TipoEmpleado)} className={inputCls}>
+                {(['En blanco','Jornalero','Contratista','Eventual'] as TipoEmpleado[]).map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Estado *</label>
+              <select value={estado} onChange={e => setEstado(e.target.value as EstadoEmpleado)} className={inputCls}>
+                {(['Activo','Licencia','Vacaciones','Inactivo'] as EstadoEmpleado[]).map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* DNI, CUIL, Fechas */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">DNI</label>
+              <input value={dni} onChange={e => setDni(e.target.value)}
+                placeholder="27.458.963" className={inputCls}/>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">CUIL</label>
+              <input value={cuil} onChange={e => setCuil(e.target.value)}
+                placeholder="20-27458963-4" className={inputCls}/>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Fecha de ingreso *</label>
+              <input type="date" value={fechaIngreso} onChange={e => setFechaIngreso(e.target.value)} className={inputCls}/>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Fecha de nacimiento</label>
+              <input type="date" value={fechaNacimiento} onChange={e => setFechaNacimiento(e.target.value)} className={inputCls}/>
+            </div>
+          </div>
+
+          {/* Remuneración */}
+          <div className="border border-borde rounded-xl p-3 space-y-3 bg-tierra/30">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gris">Remuneración</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-carbon mb-1.5">Sueldo básico (USD)</label>
+                <input type="number" value={sueldoBasico} onChange={e => setSueldoBasico(e.target.value)}
+                  min="0" step="0.01" placeholder="0.00" className={inputCls}/>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-carbon mb-1.5">Jornal diario (USD)</label>
+                <input type="number" value={jornalDiario} onChange={e => setJornalDiario(e.target.value)}
+                  min="0" step="0.01" placeholder="0.00" className={inputCls}/>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-carbon mb-1.5">Días/mes</label>
+                <input type="number" value={diasTrabajados} onChange={e => setDiasTrabajados(e.target.value)}
+                  min="0" max="31" placeholder="0" className={inputCls}/>
+              </div>
+            </div>
+          </div>
+
+          {/* Contacto */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Teléfono</label>
+              <input value={telefono} onChange={e => setTelefono(e.target.value)}
+                placeholder="+54 351 5847-321" className={inputCls}/>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="juan@ejemplo.com" className={inputCls}/>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Ciudad</label>
+              <input value={ciudad} onChange={e => setCiudad(e.target.value)}
+                placeholder="Villa María, Córdoba" className={inputCls}/>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Dirección</label>
+              <input value={direccion} onChange={e => setDireccion(e.target.value)}
+                placeholder="Casa del campo" className={inputCls}/>
+            </div>
+          </div>
+
+          {/* Cobertura social */}
+          <div className="border border-borde rounded-xl p-3 space-y-3 bg-tierra/30">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gris">Cobertura social</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-carbon mb-1.5">Obra social</label>
+                <input value={obraSocial} onChange={e => setObraSocial(e.target.value)}
+                  placeholder="OSPRERA" className={inputCls}/>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-carbon mb-1.5">ART</label>
+                <input value={art} onChange={e => setArt(e.target.value)}
+                  placeholder="Provincia ART" className={inputCls}/>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Vencimiento ART</label>
+              <input type="date" value={artVencimiento} onChange={e => setArtVencimiento(e.target.value)} className={inputCls}/>
+            </div>
+          </div>
+
+          {/* Observaciones */}
+          <div>
+            <label className="block text-xs font-medium text-carbon mb-1.5">Observaciones</label>
+            <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)}
+              placeholder="Notas adicionales..."
+              rows={2}
+              className="w-full text-sm border border-borde rounded-lg px-3 py-2 outline-none focus:border-verde focus:ring-1 focus:ring-verde/20 bg-white text-carbon placeholder:text-gris resize-none"/>
+          </div>
+        </div>
+
+        <div className="px-5 pb-5 flex gap-2">
+          <button onClick={onClose}
+            className="flex-1 text-sm font-medium border border-borde text-carbon py-2.5 rounded-lg hover:bg-tierra transition-colors">
+            Cancelar
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 text-sm font-semibold bg-verde-act text-white py-2.5 rounded-lg hover:bg-verde transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+            {saving ? 'Guardando...' : 'Guardar empleado'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Pagina principal ───────────────────────────────────────────────────────────
 export default function RRHH() {
+  const { establecimiento } = useEstablecimiento()
+  const [empleados, setEmpleados] = useState<Empleado[]>([])
+  const [loadingEmp, setLoadingEmp] = useState(true)
+  const [mostrarForm, setMostrarForm] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<string>('Todos')
   const [estadoFiltro, setEstadoFiltro] = useState<string>('Todos')
   const [seleccionado, setSeleccionado] = useState<Empleado | null>(null)
 
-  const filtrados = EMPLEADOS.filter(emp => {
+  useEffect(() => {
+    if (!establecimiento?.id) return
+    let cancelled = false
+
+    async function cargar() {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('empleados')
+        .select('*, liquidaciones(*)')
+        .eq('establecimiento_id', establecimiento!.id)
+        .order('nombre')
+
+      if (cancelled) return
+      if (error) {
+        console.error('[RRHH] Error al cargar:', error.message)
+        setLoadingEmp(false)
+        return
+      }
+
+      const mapped: Empleado[] = (data ?? []).map(emp => {
+        const liqs = ((emp.liquidaciones ?? []) as Record<string, unknown>[])
+          .map(l => ({
+            id: l.id as string,
+            mes: l.mes as string,
+            ano: l.ano as number,
+            bruto: Number(l.bruto),
+            descuentos: Number(l.descuentos),
+            neto: Number(l.neto),
+            estado: l.estado as 'Pagada' | 'Pendiente',
+          }))
+          .sort((a, b) => {
+            if (b.ano !== a.ano) return b.ano - a.ano
+            return MESES_ORDEN.indexOf(b.mes) - MESES_ORDEN.indexOf(a.mes)
+          })
+
+        return {
+          id: emp.id as string,
+          nombre: emp.nombre as string,
+          dni: (emp.dni ?? '') as string,
+          cuil: emp.cuil ?? undefined,
+          fecha_nacimiento: emp.fecha_nacimiento ?? undefined,
+          fecha_ingreso: emp.fecha_ingreso as string,
+          cargo: emp.cargo as Cargo,
+          tipo: emp.tipo as TipoEmpleado,
+          estado: emp.estado as EstadoEmpleado,
+          telefono: emp.telefono ?? undefined,
+          email: emp.email ?? undefined,
+          direccion: emp.direccion ?? undefined,
+          ciudad: emp.ciudad ?? undefined,
+          sueldo_basico: emp.sueldo_basico != null ? Number(emp.sueldo_basico) : undefined,
+          jornal_diario: emp.jornal_diario != null ? Number(emp.jornal_diario) : undefined,
+          dias_trabajados_mes: emp.dias_trabajados_mes ?? undefined,
+          obra_social: emp.obra_social ?? undefined,
+          art: emp.art ?? undefined,
+          art_vencimiento: emp.art_vencimiento ?? undefined,
+          observaciones: emp.observaciones ?? undefined,
+          liquidaciones: liqs,
+        }
+      })
+
+      setEmpleados(mapped)
+      setLoadingEmp(false)
+    }
+
+    cargar()
+    return () => { cancelled = true }
+  }, [establecimiento?.id])
+
+  function handleSuccess(emp: Empleado) {
+    setEmpleados(prev => [...prev, emp].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+    setMostrarForm(false)
+    setSeleccionado(emp)
+  }
+
+  const filtrados = empleados.filter(emp => {
     const matchBusqueda = emp.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
       emp.dni.includes(busqueda) ||
       emp.cargo.toLowerCase().includes(busqueda.toLowerCase())
@@ -397,18 +656,14 @@ export default function RRHH() {
   })
 
   // KPIs
-  const totalEmpleados = EMPLEADOS.length
-  const enBlanco = EMPLEADOS.filter(e => e.tipo === 'En blanco' && e.estado === 'Activo').length
-  const jornaleros = EMPLEADOS.filter(e => (e.tipo === 'Jornalero' || e.tipo === 'Eventual') && e.estado === 'Activo').length
-
-  // Total liquidado mes pasado
-  const totalMes = EMPLEADOS.reduce((acc, e) => {
+  const totalEmpleados = empleados.length
+  const enBlanco = empleados.filter(e => e.tipo === 'En blanco' && e.estado === 'Activo').length
+  const jornaleros = empleados.filter(e => (e.tipo === 'Jornalero' || e.tipo === 'Eventual') && e.estado === 'Activo').length
+  const totalMes = empleados.reduce((acc, e) => {
     const ultLiq = e.liquidaciones[0]
     return acc + (ultLiq ? ultLiq.neto : 0)
   }, 0)
-
-  // Alertas ART
-  const alertasART = EMPLEADOS.filter(e => {
+  const alertasART = empleados.filter(e => {
     const d = diasHasta(e.art_vencimiento)
     return d !== null && d < 30
   }).length
@@ -418,7 +673,9 @@ export default function RRHH() {
       <button className="flex items-center gap-1.5 text-xs font-medium border border-borde bg-white text-carbon px-3 py-1.5 rounded-lg hover:bg-tierra transition-colors">
         <FileText size={13}/> Liquidaciones del mes
       </button>
-      <button className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
+      <button
+        onClick={() => setMostrarForm(true)}
+        className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
         <Plus size={13}/> Nuevo empleado
       </button>
     </div>
@@ -427,6 +684,15 @@ export default function RRHH() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar title="Recursos Humanos" actions={actions}/>
+
+      {mostrarForm && establecimiento && (
+        <FormNuevoEmpleado
+          establecimientoId={establecimiento.id}
+          onClose={() => setMostrarForm(false)}
+          onSuccess={handleSuccess}
+        />
+      )}
+
       <div className="flex-1 overflow-y-auto p-4">
 
         {/* KPIs */}
@@ -439,7 +705,7 @@ export default function RRHH() {
           <div className="bg-white border border-borde rounded-xl p-3 border-t-2 border-t-verde-ac">
             <div className="text-[10px] text-gris mb-1 uppercase tracking-wide font-medium">Empleados activos</div>
             <div className="text-xl font-semibold text-verde">
-              {EMPLEADOS.filter(e => e.estado === 'Activo').length}
+              {empleados.filter(e => e.estado === 'Activo').length}
             </div>
             <div className="text-[10px] text-gris">trabajando actualmente</div>
           </div>
@@ -450,7 +716,9 @@ export default function RRHH() {
           </div>
           <div className={"bg-white border border-borde rounded-xl p-3 border-t-2 " +
             (alertasART > 0 ? 'border-t-rojo' : 'border-t-verde-ac')}>
-            <div className="text-[10px] text-gris mb-1 uppercase tracking-wide font-medium">Alertas ART</div>
+            <div className="text-[10px] text-gris mb-1 uppercase tracking-wide font-medium flex items-center gap-1">
+              {alertasART > 0 && <AlertTriangle size={11} className="text-rojo"/>} Alertas ART
+            </div>
             <div className={"text-xl font-semibold " + (alertasART > 0 ? 'text-rojo' : 'text-verde')}>
               {alertasART}
             </div>
@@ -496,81 +764,93 @@ export default function RRHH() {
         </div>
 
         {/* Lista de empleados */}
-        <div className={"grid gap-3 " + (seleccionado ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
+        {loadingEmp ? (
+          <div className="bg-white border border-borde rounded-xl flex items-center justify-center py-12">
+            <p className="text-sm text-gris">Cargando personal...</p>
+          </div>
+        ) : (
+          <div className={"grid gap-3 " + (seleccionado ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
+            <div className="bg-white border border-borde rounded-xl overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-tierra border-b border-borde">
+                    {['Empleado','Cargo','Tipo','Ingreso','Antigüedad','Remuneración','Última liq.','Estado'].map(h => (
+                      <th key={h} className="text-left px-3 py-2 font-medium text-gris">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-borde">
+                  {filtrados.map(emp => {
+                    const ultLiq = emp.liquidaciones[0]
+                    const artDias = diasHasta(emp.art_vencimiento)
+                    return (
+                      <tr key={emp.id}
+                        onClick={() => setSeleccionado(seleccionado?.id === emp.id ? null : emp)}
+                        className={"cursor-pointer transition-colors hover:bg-tierra/50 " +
+                          (seleccionado?.id === emp.id ? 'bg-verde-s' : '')}>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-verde flex items-center justify-center flex-shrink-0">
+                              <span className="text-white font-semibold text-[10px]">{getIniciales(emp.nombre)}</span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-carbon">{emp.nombre}</p>
+                              {emp.dni && <p className="text-[10px] text-gris">DNI {emp.dni}</p>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-carbon">{emp.cargo}</td>
+                        <td className="px-3 py-2">
+                          <span className={getTipoChip(emp.tipo)}>{emp.tipo}</span>
+                        </td>
+                        <td className="px-3 py-2 text-gris">{formatDate(emp.fecha_ingreso)}</td>
+                        <td className="px-3 py-2 text-carbon font-medium">{getAntiguedad(emp.fecha_ingreso)}</td>
+                        <td className="px-3 py-2 text-carbon font-semibold whitespace-nowrap">
+                          {emp.sueldo_basico ? formatUSD(emp.sueldo_basico) + '/mes' :
+                           emp.jornal_diario ? formatUSD(emp.jornal_diario) + '/dia' : '—'}
+                        </td>
+                        <td className="px-3 py-2">
+                          {ultLiq ? (
+                            <>
+                              <p className="text-verde font-semibold">{formatUSD(ultLiq.neto)}</p>
+                              <p className="text-[10px] text-gris">{ultLiq.mes} {ultLiq.ano}</p>
+                            </>
+                          ) : <span className="text-gris">—</span>}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={getEstadoChip(emp.estado)}>{emp.estado}</span>
+                          {artDias !== null && artDias < 30 && (
+                            <div className="mt-1">
+                              <span className="chip chip-red text-[9px]">⚠ ART</span>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              {empleados.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Users size={32} className="text-borde mb-3"/>
+                  <p className="text-sm font-medium text-carbon mb-1">Todavía no hay personal registrado</p>
+                  <p className="text-xs text-gris">Agregá tu primer empleado con el botón "Nuevo empleado"</p>
+                </div>
+              )}
+              {empleados.length > 0 && filtrados.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Users size={32} className="text-borde mb-3"/>
+                  <p className="text-sm font-medium text-carbon mb-1">Sin resultados</p>
+                  <p className="text-xs text-gris">Cambiá los filtros para ver otro personal</p>
+                </div>
+              )}
+            </div>
 
-          <div className="bg-white border border-borde rounded-xl overflow-hidden">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-tierra border-b border-borde">
-                  {['Empleado','Cargo','Tipo','Ingreso','Antigüedad','Remuneración','Última liq.','Estado'].map(h => (
-                    <th key={h} className="text-left px-3 py-2 font-medium text-gris">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-borde">
-                {filtrados.map(emp => {
-                  const ultLiq = emp.liquidaciones[0]
-                  const artDias = diasHasta(emp.art_vencimiento)
-                  return (
-                    <tr key={emp.id}
-                      onClick={() => setSeleccionado(seleccionado?.id === emp.id ? null : emp)}
-                      className={"cursor-pointer transition-colors hover:bg-tierra/50 " +
-                        (seleccionado?.id === emp.id ? 'bg-verde-s' : '')}>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-verde flex items-center justify-center flex-shrink-0">
-                            <span className="text-white font-semibold text-[10px]">{getIniciales(emp.nombre)}</span>
-                          </div>
-                          <div>
-                            <p className="font-medium text-carbon">{emp.nombre}</p>
-                            <p className="text-[10px] text-gris">DNI {emp.dni}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-carbon">{emp.cargo}</td>
-                      <td className="px-3 py-2">
-                        <span className={getTipoChip(emp.tipo)}>{emp.tipo}</span>
-                      </td>
-                      <td className="px-3 py-2 text-gris">{formatDate(emp.fecha_ingreso)}</td>
-                      <td className="px-3 py-2 text-carbon font-medium">{getAntiguedad(emp.fecha_ingreso)}</td>
-                      <td className="px-3 py-2 text-carbon font-semibold whitespace-nowrap">
-                        {emp.sueldo_basico ? formatUSD(emp.sueldo_basico) + '/mes' :
-                         emp.jornal_diario ? formatUSD(emp.jornal_diario) + '/dia' : '—'}
-                      </td>
-                      <td className="px-3 py-2">
-                        {ultLiq ? (
-                          <>
-                            <p className="text-verde font-semibold">{formatUSD(ultLiq.neto)}</p>
-                            <p className="text-[10px] text-gris">{ultLiq.mes} {ultLiq.ano}</p>
-                          </>
-                        ) : <span className="text-gris">—</span>}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className={getEstadoChip(emp.estado)}>{emp.estado}</span>
-                        {artDias !== null && artDias < 30 && (
-                          <div className="mt-1">
-                            <span className="chip chip-red text-[9px]">⚠ ART</span>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-            {filtrados.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Users size={32} className="text-borde mb-3"/>
-                <p className="text-sm font-medium text-carbon mb-1">No hay empleados</p>
-                <p className="text-xs text-gris">Cambia los filtros o agrega uno nuevo</p>
-              </div>
+            {seleccionado && (
+              <PanelDetalleEmpleado e={seleccionado} onClose={() => setSeleccionado(null)}/>
             )}
           </div>
-
-          {seleccionado && (
-            <PanelDetalleEmpleado e={seleccionado} onClose={() => setSeleccionado(null)}/>
-          )}
-        </div>
+        )}
       </div>
     </div>
   )
