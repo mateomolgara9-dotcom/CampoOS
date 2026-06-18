@@ -1,7 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, Plus, Users, Building2, Truck, Stethoscope, X, Phone, Mail, MapPin, FileText, TrendingUp, Star } from 'lucide-react'
 import Topbar from '@/components/Topbar'
+import { createClient } from '@/lib/supabase'
+import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type TipoContacto = 'Cliente' | 'Proveedor' | 'Asesor' | 'Contratista' | 'Transportista' | 'Otro'
@@ -21,141 +23,13 @@ type Contacto = {
   ciudad?: string
   provincia?: string
   contacto_principal?: string
-  // Datos comerciales
   total_operaciones?: number
   monto_acumulado?: number
   ultima_operacion?: string
-  // Calificacion
-  rating?: number // 1-5
+  rating?: number
   observaciones?: string
   tags?: string[]
 }
-
-// ── Datos de ejemplo ──────────────────────────────────────────────────────────
-const CONTACTOS: Contacto[] = [
-  {
-    id:'1', nombre:'Frigorifico Rioplatense', razon_social:'Frigorifico Rioplatense S.A.',
-    tipo:'Cliente', subtipo:'Frigorifico', estado:'Activo',
-    cuit:'30-65478932-4', telefono:'+54 11 4789-1200', email:'compras@rioplatense.com.ar',
-    direccion:'Av. del Libertador 4500', ciudad:'Pilar', provincia:'Buenos Aires',
-    contacto_principal:'Roberto Sanchez',
-    total_operaciones:24, monto_acumulado:825000, ultima_operacion:'2026-05-18',
-    rating:5, tags:['Frigorifico', 'Hacienda'],
-  },
-  {
-    id:'2', nombre:'Cargill Argentina', razon_social:'Cargill S.A.C.I.',
-    tipo:'Cliente', subtipo:'Acopiador', estado:'Activo',
-    cuit:'30-50001884-7', telefono:'+54 11 4319-2400', email:'comercial@cargill.com.ar',
-    direccion:'Av. del Libertador 1000', ciudad:'Vicente Lopez', provincia:'Buenos Aires',
-    contacto_principal:'Maria Eugenia Lopez',
-    total_operaciones:8, monto_acumulado:712000, ultima_operacion:'2026-05-05',
-    rating:5, tags:['Granos', 'Forward'],
-  },
-  {
-    id:'3', nombre:'Acopio La Reina', razon_social:'Acopio La Reina S.R.L.',
-    tipo:'Cliente', subtipo:'Acopiador', estado:'Activo',
-    cuit:'30-71239456-1', telefono:'+54 353 4521-789', email:'admin@lareina.com.ar',
-    direccion:'Ruta Nacional 9 km 542', ciudad:'Villa Maria', provincia:'Cordoba',
-    contacto_principal:'Daniel Bertola',
-    total_operaciones:15, monto_acumulado:312000, ultima_operacion:'2026-05-15',
-    rating:4, tags:['Granos', 'Acopio local'],
-  },
-  {
-    id:'4', nombre:'Agroquimicos Sur', razon_social:'Agroquimicos del Sur S.R.L.',
-    tipo:'Proveedor', subtipo:'Agroquimicos', estado:'Activo',
-    cuit:'30-71458921-3', telefono:'+54 351 4789-456', email:'ventas@agroquimicosur.com',
-    direccion:'Av. Colon 2800', ciudad:'Cordoba', provincia:'Cordoba',
-    contacto_principal:'Federico Romano',
-    total_operaciones:42, monto_acumulado:185000, ultima_operacion:'2026-05-22',
-    rating:4, tags:['Insumos', 'Agroquimicos'],
-  },
-  {
-    id:'5', nombre:'YPF Agro', razon_social:'YPF S.A. Division Agro',
-    tipo:'Proveedor', subtipo:'Fertilizantes', estado:'Activo',
-    cuit:'30-54668997-9', telefono:'+54 11 5441-2000', email:'agro@ypf.com',
-    direccion:'Macacha Guemes 515', ciudad:'CABA', provincia:'Buenos Aires',
-    contacto_principal:'Luciano Pereira',
-    total_operaciones:12, monto_acumulado:95000, ultima_operacion:'2026-04-20',
-    rating:5, tags:['Fertilizantes', 'Combustible'],
-  },
-  {
-    id:'6', nombre:'Dekalb Semillas', razon_social:'Bayer S.A. Division Semillas',
-    tipo:'Proveedor', subtipo:'Semillas', estado:'Activo',
-    cuit:'30-50001485-2', telefono:'+54 11 4317-7500', email:'semillas@bayer.com',
-    direccion:'Av. del Libertador 7202', ciudad:'CABA', provincia:'Buenos Aires',
-    contacto_principal:'Veronica Aguilera',
-    total_operaciones:6, monto_acumulado:48000, ultima_operacion:'2026-04-15',
-    rating:5, tags:['Semillas', 'Maiz', 'Soja'],
-  },
-  {
-    id:'7', nombre:'Dr. Martin Acosta', tipo:'Asesor', subtipo:'Veterinario',
-    estado:'Activo', cuit:'20-28457896-5', telefono:'+54 351 5847-321',
-    email:'mvet.acosta@gmail.com', ciudad:'Villa Maria', provincia:'Cordoba',
-    total_operaciones:48, monto_acumulado:28800, ultima_operacion:'2026-05-15',
-    rating:5, observaciones:'Veterinario de cabecera. Asistencia mensual al rodeo.',
-    tags:['Sanidad', 'Rodeo'],
-  },
-  {
-    id:'8', nombre:'Ing. Agr. Patricia Mendez', tipo:'Asesor', subtipo:'Agronomo',
-    estado:'Activo', cuit:'27-30125478-3', telefono:'+54 353 4159-852',
-    email:'p.mendez.agro@gmail.com', ciudad:'Villa Maria', provincia:'Cordoba',
-    total_operaciones:18, monto_acumulado:15400, ultima_operacion:'2026-05-10',
-    rating:5, observaciones:'Asesora agronomica CREA. Visita cada 15 dias.',
-    tags:['CREA', 'Cultivos'],
-  },
-  {
-    id:'9', nombre:'Transporte Los Andes', razon_social:'Transporte Los Andes S.R.L.',
-    tipo:'Transportista', subtipo:'Hacienda', estado:'Activo',
-    cuit:'30-65124789-3', telefono:'+54 351 4587-963', email:'logistica@losandes.com.ar',
-    ciudad:'Cordoba', provincia:'Cordoba', contacto_principal:'Carlos Quiroga',
-    total_operaciones:32, monto_acumulado:45600, ultima_operacion:'2026-05-18',
-    rating:4, tags:['Camiones jaulas', 'Hacienda'],
-  },
-  {
-    id:'10', nombre:'Cosechadora El Pampero', tipo:'Contratista', subtipo:'Cosecha',
-    estado:'Activo', cuit:'30-71258963-4', telefono:'+54 353 4789-456',
-    contacto_principal:'Sergio Vivas',
-    ciudad:'Villa Nueva', provincia:'Cordoba',
-    total_operaciones:6, monto_acumulado:32400, ultima_operacion:'2026-04-05',
-    rating:5, observaciones:'Contratista de cosecha. 50 ha/dia, JD S780.',
-    tags:['Cosecha', 'Maiz', 'Soja'],
-  },
-  {
-    id:'11', nombre:'Estancia La Maria', tipo:'Cliente', subtipo:'Vecino',
-    estado:'Activo', telefono:'+54 351 5478-963',
-    contacto_principal:'Luis Maria Echeverria',
-    ciudad:'Cordoba', provincia:'Cordoba',
-    total_operaciones:2, monto_acumulado:12000, ultima_operacion:'2026-05-20',
-    rating:4, observaciones:'Vecino. Servicios de cosecha y siembra.',
-    tags:['Servicios', 'Vecino'],
-  },
-  {
-    id:'12', nombre:'Banco Galicia Agro', razon_social:'Banco Galicia S.A.',
-    tipo:'Otro', subtipo:'Banco', estado:'Activo',
-    telefono:'+54 11 6329-0000', email:'agro@galiciasa.com',
-    ciudad:'CABA', provincia:'Buenos Aires',
-    contacto_principal:'Sebastian Mendoza',
-    rating:4, observaciones:'Linea de credito Carta Verde. USD 50.000 aprobados.',
-    tags:['Banco', 'Financiamiento'],
-  },
-  {
-    id:'13', nombre:'Carniceria El Tropezon', razon_social:'Carniceria El Tropezon',
-    tipo:'Cliente', subtipo:'Carniceria', estado:'Activo',
-    telefono:'+54 351 4123-456',
-    contacto_principal:'Juan Carlos Romero',
-    ciudad:'Cordoba', provincia:'Cordoba',
-    total_operaciones:4, monto_acumulado:32500, ultima_operacion:'2026-05-10',
-    rating:4, tags:['Hacienda', 'Carniceria'],
-  },
-  {
-    id:'14', nombre:'Don Mario Semillas', razon_social:'Asociados Don Mario S.A.',
-    tipo:'Proveedor', subtipo:'Semillas', estado:'Potencial',
-    telefono:'+54 2477 410-100',
-    ciudad:'Chacabuco', provincia:'Buenos Aires',
-    rating:0, observaciones:'Contactar para semilla soja proxima campania.',
-    tags:['Semillas', 'Soja'],
-  },
-]
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function getTipoChip(t: TipoContacto) {
@@ -235,8 +109,8 @@ function PanelDetalleContacto({ c, onClose }: { c: Contacto, onClose: () => void
           </div>
         )}
 
-        {/* Métricas comerciales */}
-        {(c.total_operaciones || c.monto_acumulado) && (
+        {/* Metricas comerciales */}
+        {!!(c.total_operaciones || c.monto_acumulado) && (
           <div className="py-4">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-gris mb-2">Historial comercial</p>
             <div className="grid grid-cols-2 gap-2">
@@ -333,13 +207,271 @@ function PanelDetalleContacto({ c, onClose }: { c: Contacto, onClose: () => void
           </div>
         )}
 
-        {/* Acciones */}
-        <div className="pt-4 flex flex-col gap-2">
-          <button className="w-full text-xs font-semibold bg-verde-act text-white py-2 rounded-lg hover:bg-verde transition-colors">
-            Registrar operación
+        {/* Estado */}
+        <div className="pt-3">
+          <span className={getEstadoChip(c.estado)}>{c.estado}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Formulario nuevo contacto ──────────────────────────────────────────────────
+function FormNuevoContacto({
+  establecimientoId,
+  onClose,
+  onSuccess,
+}: {
+  establecimientoId: string
+  onClose: () => void
+  onSuccess: (c: Contacto) => void
+}) {
+  const [nombre, setNombre] = useState('')
+  const [tipo, setTipo] = useState<TipoContacto>('Cliente')
+  const [estado, setEstado] = useState<EstadoContacto>('Activo')
+  const [subtipo, setSubtipo] = useState('')
+  const [razonSocial, setRazonSocial] = useState('')
+  const [cuit, setCuit] = useState('')
+  const [telefono, setTelefono] = useState('')
+  const [email, setEmail] = useState('')
+  const [ciudad, setCiudad] = useState('')
+  const [provincia, setProvincia] = useState('')
+  const [direccion, setDireccion] = useState('')
+  const [contactoPrincipal, setContactoPrincipal] = useState('')
+  const [rating, setRating] = useState(0)
+  const [observaciones, setObservaciones] = useState('')
+  const [tags, setTags] = useState('')
+
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const inputCls = 'w-full text-sm border border-borde rounded-lg px-3 py-2 outline-none focus:border-verde focus:ring-1 focus:ring-verde/20 bg-white text-carbon placeholder:text-gris'
+
+  async function handleSave() {
+    if (!nombre.trim()) { setError('El nombre es obligatorio.'); return }
+
+    setSaving(true)
+    setError(null)
+    try {
+      const supabase = createClient()
+      const id = crypto.randomUUID()
+      const tagsArr = tags.trim()
+        ? tags.split(',').map(t => t.trim()).filter(Boolean)
+        : []
+
+      const { error: dbError } = await supabase.from('contactos').insert({
+        id,
+        establecimiento_id: establecimientoId,
+        nombre: nombre.trim(),
+        razon_social: razonSocial.trim() || null,
+        tipo,
+        subtipo: subtipo.trim() || null,
+        estado,
+        cuit: cuit.trim() || null,
+        telefono: telefono.trim() || null,
+        email: email.trim() || null,
+        direccion: direccion.trim() || null,
+        ciudad: ciudad.trim() || null,
+        provincia: provincia.trim() || null,
+        contacto_principal: contactoPrincipal.trim() || null,
+        rating: rating > 0 ? rating : null,
+        observaciones: observaciones.trim() || null,
+        tags: tagsArr,
+      })
+
+      if (dbError) {
+        setError('Error al guardar: ' + dbError.message)
+        return
+      }
+
+      const contacto: Contacto = {
+        id,
+        nombre: nombre.trim(),
+        razon_social: razonSocial.trim() || undefined,
+        tipo,
+        subtipo: subtipo.trim() || undefined,
+        estado,
+        cuit: cuit.trim() || undefined,
+        telefono: telefono.trim() || undefined,
+        email: email.trim() || undefined,
+        direccion: direccion.trim() || undefined,
+        ciudad: ciudad.trim() || undefined,
+        provincia: provincia.trim() || undefined,
+        contacto_principal: contactoPrincipal.trim() || undefined,
+        rating: rating > 0 ? rating : undefined,
+        observaciones: observaciones.trim() || undefined,
+        tags: tagsArr.length > 0 ? tagsArr : undefined,
+        total_operaciones: 0,
+        monto_acumulado: 0,
+      }
+      onSuccess(contacto)
+    } catch (err) {
+      setError('Error inesperado.')
+      console.error(err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="bg-verde px-5 py-4 flex items-center justify-between rounded-t-2xl sticky top-0">
+          <div>
+            <h2 className="text-sm font-semibold text-white">Nuevo contacto</h2>
+            <p className="text-xs text-white/60 mt-0.5">Completá los datos del contacto</p>
+          </div>
+          <button onClick={onClose} className="text-white/50 hover:text-white"><X size={16}/></button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">{error}</div>
+          )}
+
+          {/* Nombre */}
+          <div>
+            <label className="block text-xs font-medium text-carbon mb-1.5">Nombre *</label>
+            <input value={nombre} onChange={e => setNombre(e.target.value)}
+              placeholder="Nombre o razón social abreviada"
+              className={inputCls}/>
+          </div>
+
+          {/* Tipo y Estado */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Tipo *</label>
+              <select value={tipo} onChange={e => setTipo(e.target.value as TipoContacto)} className={inputCls}>
+                {(['Cliente','Proveedor','Asesor','Contratista','Transportista','Otro'] as TipoContacto[]).map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Estado *</label>
+              <select value={estado} onChange={e => setEstado(e.target.value as EstadoContacto)} className={inputCls}>
+                {(['Activo','Potencial','Inactivo'] as EstadoContacto[]).map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Razon social y Subtipo */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Razón social</label>
+              <input value={razonSocial} onChange={e => setRazonSocial(e.target.value)}
+                placeholder="S.A., S.R.L., etc."
+                className={inputCls}/>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Subtipo</label>
+              <input value={subtipo} onChange={e => setSubtipo(e.target.value)}
+                placeholder="Frigorifico, Acopiador..."
+                className={inputCls}/>
+            </div>
+          </div>
+
+          {/* Contacto y CUIT */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Contacto principal</label>
+              <input value={contactoPrincipal} onChange={e => setContactoPrincipal(e.target.value)}
+                placeholder="Nombre y apellido"
+                className={inputCls}/>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">CUIT</label>
+              <input value={cuit} onChange={e => setCuit(e.target.value)}
+                placeholder="20-12345678-9"
+                className={inputCls}/>
+            </div>
+          </div>
+
+          {/* Telefono y Email */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Teléfono</label>
+              <input value={telefono} onChange={e => setTelefono(e.target.value)}
+                placeholder="+54 351 1234-5678"
+                className={inputCls}/>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="contacto@empresa.com"
+                className={inputCls}/>
+            </div>
+          </div>
+
+          {/* Ciudad y Provincia */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Ciudad</label>
+              <input value={ciudad} onChange={e => setCiudad(e.target.value)}
+                placeholder="Villa María"
+                className={inputCls}/>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-carbon mb-1.5">Provincia</label>
+              <input value={provincia} onChange={e => setProvincia(e.target.value)}
+                placeholder="Córdoba"
+                className={inputCls}/>
+            </div>
+          </div>
+
+          {/* Dirección */}
+          <div>
+            <label className="block text-xs font-medium text-carbon mb-1.5">Dirección</label>
+            <input value={direccion} onChange={e => setDireccion(e.target.value)}
+              placeholder="Av. Colón 1234"
+              className={inputCls}/>
+          </div>
+
+          {/* Rating */}
+          <div>
+            <label className="block text-xs font-medium text-carbon mb-1.5">Calificación</label>
+            <div className="flex items-center gap-1">
+              {[1,2,3,4,5].map(n => (
+                <button key={n} type="button"
+                  onClick={() => setRating(rating === n ? 0 : n)}
+                  className="p-0.5">
+                  <Star size={20} className={n <= rating ? 'fill-ambar text-ambar' : 'text-borde hover:text-ambar/50'}/>
+                </button>
+              ))}
+              {rating > 0 && (
+                <span className="text-xs text-gris ml-1">{rating}/5</span>
+              )}
+            </div>
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="block text-xs font-medium text-carbon mb-1.5">Etiquetas</label>
+            <input value={tags} onChange={e => setTags(e.target.value)}
+              placeholder="Hacienda, Granos, CREA (separadas por coma)"
+              className={inputCls}/>
+          </div>
+
+          {/* Observaciones */}
+          <div>
+            <label className="block text-xs font-medium text-carbon mb-1.5">Observaciones</label>
+            <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)}
+              placeholder="Notas adicionales..."
+              rows={2}
+              className="w-full text-sm border border-borde rounded-lg px-3 py-2 outline-none focus:border-verde focus:ring-1 focus:ring-verde/20 bg-white text-carbon placeholder:text-gris resize-none"/>
+          </div>
+        </div>
+
+        <div className="px-5 pb-5 flex gap-2">
+          <button onClick={onClose}
+            className="flex-1 text-sm font-medium border border-borde text-carbon py-2.5 rounded-lg hover:bg-tierra transition-colors">
+            Cancelar
           </button>
-          <button className="w-full text-xs font-medium border border-borde text-carbon py-2 rounded-lg hover:bg-tierra transition-colors">
-            Ver historial completo
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 text-sm font-semibold bg-verde-act text-white py-2.5 rounded-lg hover:bg-verde transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+            {saving ? 'Guardando...' : 'Guardar contacto'}
           </button>
         </div>
       </div>
@@ -349,12 +481,71 @@ function PanelDetalleContacto({ c, onClose }: { c: Contacto, onClose: () => void
 
 // ── Pagina principal ───────────────────────────────────────────────────────────
 export default function Contactos() {
+  const { establecimiento } = useEstablecimiento()
+  const [contactos, setContactos] = useState<Contacto[]>([])
+  const [loadingContactos, setLoadingContactos] = useState(true)
+  const [mostrarForm, setMostrarForm] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<string>('Todos')
-  const [estadoFiltro, setEstadoFiltro] = useState<string>('Todos')
+  const [estadoFiltro] = useState<string>('Todos')
   const [seleccionado, setSeleccionado] = useState<Contacto | null>(null)
 
-  const filtrados = CONTACTOS.filter(c => {
+  useEffect(() => {
+    if (!establecimiento?.id) return
+    let cancelled = false
+
+    async function cargar() {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('contactos')
+        .select('*')
+        .eq('establecimiento_id', establecimiento!.id)
+        .order('nombre')
+
+      if (cancelled) return
+      if (error) {
+        console.error('[Contactos] Error al cargar:', error.message)
+        setLoadingContactos(false)
+        return
+      }
+
+      const mapped: Contacto[] = (data ?? []).map(c => ({
+        id: c.id as string,
+        nombre: c.nombre as string,
+        razon_social: c.razon_social ?? undefined,
+        tipo: c.tipo as TipoContacto,
+        subtipo: c.subtipo ?? undefined,
+        estado: c.estado as EstadoContacto,
+        cuit: c.cuit ?? undefined,
+        telefono: c.telefono ?? undefined,
+        email: c.email ?? undefined,
+        direccion: c.direccion ?? undefined,
+        ciudad: c.ciudad ?? undefined,
+        provincia: c.provincia ?? undefined,
+        contacto_principal: c.contacto_principal ?? undefined,
+        total_operaciones: c.total_operaciones as number,
+        monto_acumulado: Number(c.monto_acumulado),
+        ultima_operacion: c.ultima_operacion ?? undefined,
+        rating: c.rating ?? undefined,
+        observaciones: c.observaciones ?? undefined,
+        tags: (c.tags as string[]) ?? [],
+      }))
+
+      setContactos(mapped)
+      setLoadingContactos(false)
+    }
+
+    cargar()
+    return () => { cancelled = true }
+  }, [establecimiento?.id])
+
+  function handleSuccess(c: Contacto) {
+    setContactos(prev => [...prev, c].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+    setMostrarForm(false)
+    setSeleccionado(c)
+  }
+
+  const filtrados = contactos.filter(c => {
     const matchBusqueda = c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
       (c.razon_social || '').toLowerCase().includes(busqueda.toLowerCase()) ||
       (c.email || '').toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -366,15 +557,18 @@ export default function Contactos() {
   })
 
   // KPIs
-  const totalContactos = CONTACTOS.length
-  const clientes = CONTACTOS.filter(c => c.tipo === 'Cliente').length
-  const proveedores = CONTACTOS.filter(c => c.tipo === 'Proveedor').length
-  const totalFacturado = CONTACTOS.filter(c => c.tipo === 'Cliente')
+  const totalContactos = contactos.length
+  const clientes = contactos.filter(c => c.tipo === 'Cliente').length
+  const proveedores = contactos.filter(c => c.tipo === 'Proveedor').length
+  const totalFacturado = contactos
+    .filter(c => c.tipo === 'Cliente')
     .reduce((acc, c) => acc + (c.monto_acumulado || 0), 0)
 
   const actions = (
     <div className="flex gap-2">
-      <button className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
+      <button
+        onClick={() => setMostrarForm(true)}
+        className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
         <Plus size={13}/> Nuevo contacto
       </button>
     </div>
@@ -383,15 +577,24 @@ export default function Contactos() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar title="Contactos" actions={actions}/>
+
+      {mostrarForm && establecimiento && (
+        <FormNuevoContacto
+          establecimientoId={establecimiento.id}
+          onClose={() => setMostrarForm(false)}
+          onSuccess={handleSuccess}
+        />
+      )}
+
       <div className="flex-1 overflow-y-auto p-4">
 
         {/* KPIs */}
         <div className="grid grid-cols-4 gap-2.5 mb-4">
           {[
-            { l:'Total contactos',     v: totalContactos.toString(),     s:'en la base de datos',         c:'border-t-verde-ac' },
-            { l:'Clientes activos',    v: clientes.toString(),           s:'compradores recurrentes',     c:'border-t-verde-ac' },
-            { l:'Proveedores',         v: proveedores.toString(),         s:'red de abastecimiento',       c:'border-t-azul' },
-            { l:'Total facturado',     v: formatUSD(totalFacturado),      s:'a clientes acumulado',        c:'border-t-ambar' },
+            { l:'Total contactos',  v: totalContactos.toString(), s:'en la base de datos',     c:'border-t-verde-ac' },
+            { l:'Clientes activos', v: clientes.toString(),       s:'compradores recurrentes', c:'border-t-verde-ac' },
+            { l:'Proveedores',      v: proveedores.toString(),    s:'red de abastecimiento',   c:'border-t-azul' },
+            { l:'Total facturado',  v: formatUSD(totalFacturado), s:'a clientes acumulado',    c:'border-t-ambar' },
           ].map(({ l, v, s, c }) => (
             <div key={l} className={"bg-white border border-borde rounded-xl p-3 border-t-2 " + c}>
               <div className="text-[10px] text-gris mb-1 uppercase tracking-wide font-medium">{l}</div>
@@ -427,66 +630,77 @@ export default function Contactos() {
         </div>
 
         {/* Lista + Detalle */}
-        <div className={"grid gap-3 " + (seleccionado ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
-
-          {/* Grid de contactos */}
-          <div className={"grid gap-2.5 " + (seleccionado ? 'grid-cols-2' : 'grid-cols-3')}>
-            {filtrados.map(c => (
-              <div key={c.id}
-                onClick={() => setSeleccionado(seleccionado?.id === c.id ? null : c)}
-                className={"bg-white border rounded-xl p-3 cursor-pointer transition-all hover:shadow-md " +
-                  (seleccionado?.id === c.id ? 'border-verde-act bg-verde-s' : 'border-borde hover:border-gris')}>
-                <div className="flex items-start gap-2.5">
-                  <div className="w-10 h-10 rounded-full bg-verde flex items-center justify-center flex-shrink-0">
-                    <span className="text-white font-semibold text-xs">{getIniciales(c.nombre)}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-carbon truncate">{c.nombre}</p>
-                    <p className="text-[10px] text-gris truncate mt-0.5">
-                      {c.contacto_principal || c.razon_social || c.ciudad || '—'}
-                    </p>
-                    <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                      <span className={getTipoChip(c.tipo)}>{c.tipo}</span>
-                      {c.subtipo && (
-                        <span className="text-[10px] text-gris">· {c.subtipo}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {c.monto_acumulado && c.monto_acumulado > 0 && (
-                  <div className="mt-2 pt-2 border-t border-borde flex items-center justify-between">
-                    <span className="text-[10px] text-gris">
-                      {c.total_operaciones} oper.
-                    </span>
-                    <span className="text-[11px] font-semibold text-verde">
-                      {formatUSD(c.monto_acumulado)}
-                    </span>
-                  </div>
-                )}
-                {c.rating !== undefined && c.rating > 0 && (
-                  <div className="mt-1 flex items-center gap-0.5">
-                    {[1,2,3,4,5].map(n => (
-                      <Star key={n} size={9}
-                        className={n <= (c.rating || 0) ? 'fill-ambar text-ambar' : 'text-borde'}/>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+        {loadingContactos ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-sm text-gris">Cargando contactos...</p>
           </div>
-
-          {/* Panel detalle */}
-          {seleccionado && (
-            <PanelDetalleContacto c={seleccionado} onClose={() => setSeleccionado(null)}/>
-          )}
-        </div>
-
-        {filtrados.length === 0 && (
+        ) : contactos.length === 0 ? (
           <div className="bg-white border border-borde rounded-xl flex flex-col items-center justify-center py-12 text-center">
             <Users size={32} className="text-borde mb-3"/>
-            <p className="text-sm font-medium text-carbon mb-1">No hay contactos</p>
-            <p className="text-xs text-gris">Cambia los filtros o agrega un nuevo contacto</p>
+            <p className="text-sm font-medium text-carbon mb-1">Todavía no hay contactos registrados</p>
+            <p className="text-xs text-gris">Agregá tu primer contacto con el botón "Nuevo contacto"</p>
           </div>
+        ) : (
+          <>
+            <div className={"grid gap-3 " + (seleccionado ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
+              <div className={"grid gap-2.5 " + (seleccionado ? 'grid-cols-2' : 'grid-cols-3')}>
+                {filtrados.map(c => (
+                  <div key={c.id}
+                    onClick={() => setSeleccionado(seleccionado?.id === c.id ? null : c)}
+                    className={"bg-white border rounded-xl p-3 cursor-pointer transition-all hover:shadow-md " +
+                      (seleccionado?.id === c.id ? 'border-verde-act bg-verde-s' : 'border-borde hover:border-gris')}>
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-10 h-10 rounded-full bg-verde flex items-center justify-center flex-shrink-0">
+                        <span className="text-white font-semibold text-xs">{getIniciales(c.nombre)}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-carbon truncate">{c.nombre}</p>
+                        <p className="text-[10px] text-gris truncate mt-0.5">
+                          {c.contacto_principal || c.razon_social || c.ciudad || '—'}
+                        </p>
+                        <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                          <span className={getTipoChip(c.tipo)}>{c.tipo}</span>
+                          {c.subtipo && (
+                            <span className="text-[10px] text-gris">· {c.subtipo}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {!!c.monto_acumulado && c.monto_acumulado > 0 && (
+                      <div className="mt-2 pt-2 border-t border-borde flex items-center justify-between">
+                        <span className="text-[10px] text-gris">
+                          {c.total_operaciones} oper.
+                        </span>
+                        <span className="text-[11px] font-semibold text-verde">
+                          {formatUSD(c.monto_acumulado)}
+                        </span>
+                      </div>
+                    )}
+                    {c.rating !== undefined && c.rating > 0 && (
+                      <div className="mt-1 flex items-center gap-0.5">
+                        {[1,2,3,4,5].map(n => (
+                          <Star key={n} size={9}
+                            className={n <= (c.rating || 0) ? 'fill-ambar text-ambar' : 'text-borde'}/>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {seleccionado && (
+                <PanelDetalleContacto c={seleccionado} onClose={() => setSeleccionado(null)}/>
+              )}
+            </div>
+
+            {filtrados.length === 0 && (
+              <div className="bg-white border border-borde rounded-xl flex flex-col items-center justify-center py-12 text-center mt-3">
+                <Users size={32} className="text-borde mb-3"/>
+                <p className="text-sm font-medium text-carbon mb-1">Sin resultados</p>
+                <p className="text-xs text-gris">Cambiá los filtros para ver otros contactos</p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
