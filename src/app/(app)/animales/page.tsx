@@ -1,14 +1,34 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Search, Plus, RefreshCw } from 'lucide-react'
+import { Search, Plus, RefreshCw, Upload } from 'lucide-react'
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 import type { Animal, Categoria, EstadoSanitario } from '@/types'
 import toast from 'react-hot-toast'
+import dynamic from 'next/dynamic'
+import type { ColumnDef } from '@/components/ImportExcelModal'
+const ImportExcelModal = dynamic(() => import('@/components/ImportExcelModal'), { ssr: false })
 
 const CATEGORIAS: Categoria[] = ['Vaca', 'Toro', 'Novillo', 'Vaquillona', 'Ternero', 'Ternera']
 const ESTADOS: EstadoSanitario[] = ['Al día', 'Vacuna vencida', 'Vacuna próxima', 'Sin RFID']
+
+// ── Config de importación Excel ───────────────────────────────────────────────
+const IMPORT_COLUMNS: ColumnDef[] = [
+  { key: 'caravana',         header: 'Caravana',            required: true,  type: 'string' },
+  { key: 'categoria',        header: 'Categoria',            required: true,  type: 'enum',    enumValues: ['Vaca', 'Toro', 'Novillo', 'Vaquillona', 'Ternero', 'Ternera'] },
+  { key: 'raza',             header: 'Raza',                required: false, type: 'string' },
+  { key: 'potrero',          header: 'Potrero',             required: false, type: 'string' },
+  { key: 'peso_actual',      header: 'Peso (kg)',           required: false, type: 'number' },
+  { key: 'estado_sanitario', header: 'Estado Sanitario',    required: false, type: 'enum',    enumValues: ['Al día', 'Vacuna vencida', 'Vacuna próxima', 'Sin RFID'] },
+  { key: 'tiene_rfid',       header: 'Tiene RFID (SI/NO)',  required: false, type: 'boolean' },
+]
+
+const IMPORT_EXAMPLES: unknown[][] = [
+  ['AR-1001', 'Vaca',    'Angus',    'Norte', 380, 'Al día',          'SI'],
+  ['AR-1002', 'Toro',    'Hereford', 'Sur',   550, 'Al día',          'NO'],
+  ['AR-1003', 'Ternero', '',         'Norte', 120, 'Vacuna próxima',  'SI'],
+]
 
 const ANIMAL_SELECT = 'id, caravana, categoria, raza, potrero, peso_actual, gdp, estado_sanitario, tiene_rfid, created_at'
 
@@ -166,6 +186,7 @@ export default function Animales() {
   const [busqueda, setBusqueda] = useState('')
   const [sel, setSel] = useState<Animal | null>(null)
   const [mostrarForm, setMostrarForm] = useState(false)
+  const [mostrarImport, setMostrarImport] = useState(false)
 
   async function cargarAnimales() {
     setCargando(true)
@@ -212,6 +233,12 @@ export default function Animales() {
         className="flex items-center gap-1.5 text-xs font-medium border border-borde bg-white text-carbon px-3 py-1.5 rounded-lg hover:bg-tierra transition-colors">
         <RefreshCw size={12} /> Actualizar
       </button>
+      <button
+        onClick={() => setMostrarImport(true)}
+        disabled={!establecimiento}
+        className="flex items-center gap-1.5 text-xs font-medium border border-borde bg-white text-carbon px-3 py-1.5 rounded-lg hover:bg-tierra transition-colors disabled:opacity-60">
+        <Upload size={12}/> Importar Excel
+      </button>
       <button onClick={() => setMostrarForm(true)}
         disabled={!establecimiento}
         className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors disabled:opacity-60">
@@ -222,6 +249,18 @@ export default function Animales() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {mostrarImport && establecimiento && (
+        <ImportExcelModal
+          entityName="animales"
+          entityLabel="Animales"
+          tableName="animales"
+          columns={IMPORT_COLUMNS}
+          exampleRows={IMPORT_EXAMPLES}
+          establecimientoId={establecimiento.id}
+          onClose={() => setMostrarImport(false)}
+          onSuccess={() => cargarAnimales()}
+        />
+      )}
       {mostrarForm && establecimiento && (
         <FormNuevoAnimal
           establecimientoId={establecimiento.id}
