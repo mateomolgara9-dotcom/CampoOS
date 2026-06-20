@@ -1,11 +1,11 @@
 'use client'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
-export default function Login() {
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const nextPath = searchParams.get('next') ?? '/dashboard'
@@ -125,5 +125,13 @@ export default function Login() {
         </Link>
       </p>
     </div>
+  )
+}
+
+export default function Login() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }

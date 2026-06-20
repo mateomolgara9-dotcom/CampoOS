@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { Search, Plus, RefreshCw } from 'lucide-react'
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
+import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 import type { Animal, Categoria, EstadoSanitario } from '@/types'
 import toast from 'react-hot-toast'
 
@@ -24,7 +25,11 @@ function getCatChip(cat: Categoria) {
   return 'chip chip-green'
 }
 
-function FormNuevoAnimal({ onClose, onSave }: { onClose: () => void; onSave: (a: Animal) => void }) {
+function FormNuevoAnimal({ establecimientoId, onClose, onSave }: {
+  establecimientoId: string
+  onClose: () => void
+  onSave: (a: Animal) => void
+}) {
   const [form, setForm] = useState({
     caravana: '',
     categoria: 'Vaca' as Categoria,
@@ -58,6 +63,7 @@ function FormNuevoAnimal({ onClose, onSave }: { onClose: () => void; onSave: (a:
       const { data, error: err } = await supabase
         .from('animales')
         .insert([{
+          establecimiento_id: establecimientoId,
           caravana: form.caravana.trim(),
           categoria: form.categoria,
           raza: form.raza.trim() || null,
@@ -72,7 +78,8 @@ function FormNuevoAnimal({ onClose, onSave }: { onClose: () => void; onSave: (a:
       if (err) throw err
       toast.success('Animal guardado correctamente')
       onSave(data as Animal)
-    } catch {
+    } catch (err) {
+      console.error('[Animales] Error al guardar:', err)
       toast.error('No se pudo guardar el animal. Verificá tu conexión e intentá de nuevo.')
     } finally {
       setGuardando(false)
@@ -152,6 +159,7 @@ function FormNuevoAnimal({ onClose, onSave }: { onClose: () => void; onSave: (a:
 }
 
 export default function Animales() {
+  const { establecimiento } = useEstablecimiento()
   const [animales, setAnimales] = useState<Animal[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -205,7 +213,8 @@ export default function Animales() {
         <RefreshCw size={12} /> Actualizar
       </button>
       <button onClick={() => setMostrarForm(true)}
-        className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
+        disabled={!establecimiento}
+        className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors disabled:opacity-60">
         <Plus size={13} /> Nuevo animal
       </button>
     </div>
@@ -213,7 +222,13 @@ export default function Animales() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {mostrarForm && <FormNuevoAnimal onClose={() => setMostrarForm(false)} onSave={handleSave} />}
+      {mostrarForm && establecimiento && (
+        <FormNuevoAnimal
+          establecimientoId={establecimiento.id}
+          onClose={() => setMostrarForm(false)}
+          onSave={handleSave}
+        />
+      )}
       <Topbar title="Gestión animal" actions={actions} />
       <div className="flex-1 overflow-y-auto p-4">
 
