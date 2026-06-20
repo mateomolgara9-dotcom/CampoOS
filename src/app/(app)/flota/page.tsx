@@ -1,10 +1,30 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Plus, Car, Truck, X, AlertTriangle, Fuel, FileText, MapPin } from 'lucide-react'
+import { Plus, Car, Truck, X, AlertTriangle, Fuel, FileText, MapPin, Upload } from 'lucide-react'
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 import toast from 'react-hot-toast'
+import dynamic from 'next/dynamic'
+import type { ColumnDef } from '@/components/ImportExcelModal'
+const ImportExcelModal = dynamic(() => import('@/components/ImportExcelModal'), { ssr: false })
+
+const IMPORT_COLUMNS: ColumnDef[] = [
+  { key: 'nombre',  header: 'Nombre',  required: true,  type: 'string' },
+  { key: 'tipo',    header: 'Tipo',    required: true,  type: 'enum',   enumValues: ['Camioneta','Camion','Acoplado','Utilitario','Auto','Moto'] },
+  { key: 'marca',   header: 'Marca',   required: false, type: 'string' },
+  { key: 'modelo',  header: 'Modelo',  required: false, type: 'string' },
+  { key: 'ano',     header: 'Año',     required: false, type: 'number' },
+  { key: 'patente', header: 'Patente', required: true,  type: 'string' },
+  { key: 'km',      header: 'KM',      required: false, type: 'number' },
+  { key: 'estado',  header: 'Estado',  required: true,  type: 'enum',   enumValues: ['Operativo','En taller','Fuera de servicio'] },
+]
+
+const IMPORT_EXAMPLES: unknown[][] = [
+  ['Toyota Hilux Blanca', 'Camioneta', 'Toyota',   'Hilux 4x4', 2021, 'AB 123 CD', 45000, 'Operativo'],
+  ['Mercedes Actros',     'Camion',    'Mercedes', 'Actros 63', 2018, 'EF 456 GH', 89000, 'Operativo'],
+  ['Acoplado Tolva',      'Acoplado',  'Metalúrg', 'T-3000',    2016, 'IJ 789 KL',     0, 'Operativo'],
+]
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type TipoVehiculo = 'Camioneta' | 'Camion' | 'Acoplado' | 'Utilitario' | 'Auto' | 'Moto'
@@ -498,6 +518,8 @@ export default function Flota() {
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([])
   const [loadingVeh, setLoadingVeh] = useState(true)
   const [mostrarForm, setMostrarForm] = useState(false)
+  const [mostrarImport, setMostrarImport] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [seleccionado, setSeleccionado] = useState<Vehiculo | null>(null)
 
   useEffect(() => {
@@ -560,7 +582,7 @@ export default function Flota() {
 
     cargar()
     return () => { cancelled = true }
-  }, [establecimiento?.id])
+  }, [establecimiento?.id, refreshKey])
 
   function handleSuccess(v: Vehiculo) {
     setVehiculos(prev => [...prev, v].sort((a, b) => a.nombre.localeCompare(b.nombre)))
@@ -580,17 +602,35 @@ export default function Flota() {
     : 0
 
   const actions = (
-    <button
-      onClick={() => setMostrarForm(true)}
-      className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
-      <Plus size={13}/> Nuevo vehículo
-    </button>
+    <div className="flex gap-2">
+      <button onClick={() => setMostrarImport(true)} disabled={!establecimiento}
+        className="flex items-center gap-1.5 text-xs font-medium border border-borde bg-white text-carbon px-3 py-1.5 rounded-lg hover:bg-tierra transition-colors disabled:opacity-60">
+        <Upload size={12}/> Importar Excel
+      </button>
+      <button
+        onClick={() => setMostrarForm(true)}
+        className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
+        <Plus size={13}/> Nuevo vehículo
+      </button>
+    </div>
   )
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar title="Flota" actions={actions}/>
 
+      {mostrarImport && establecimiento && (
+        <ImportExcelModal
+          entityName="vehículos"
+          entityLabel="Flota"
+          tableName="vehiculos"
+          columns={IMPORT_COLUMNS}
+          exampleRows={IMPORT_EXAMPLES}
+          establecimientoId={establecimiento.id}
+          onClose={() => setMostrarImport(false)}
+          onSuccess={() => setRefreshKey(k => k + 1)}
+        />
+      )}
       {mostrarForm && establecimiento && (
         <FormNuevoVehiculo
           establecimientoId={establecimiento.id}

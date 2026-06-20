@@ -1,10 +1,33 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Search, Plus, Users, Building2, Truck, Stethoscope, X, Phone, Mail, MapPin, FileText, TrendingUp, Star } from 'lucide-react'
+import { Search, Plus, Users, Building2, Truck, Stethoscope, X, Phone, Mail, MapPin, FileText, TrendingUp, Star, Upload } from 'lucide-react'
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 import toast from 'react-hot-toast'
+import dynamic from 'next/dynamic'
+import type { ColumnDef } from '@/components/ImportExcelModal'
+const ImportExcelModal = dynamic(() => import('@/components/ImportExcelModal'), { ssr: false })
+
+const IMPORT_COLUMNS: ColumnDef[] = [
+  { key: 'nombre',            header: 'Nombre',            required: true,  type: 'string' },
+  { key: 'razon_social',      header: 'Razon Social',      required: false, type: 'string' },
+  { key: 'tipo',              header: 'Tipo',              required: true,  type: 'enum',   enumValues: ['Cliente','Proveedor','Asesor','Contratista','Transportista','Otro'] },
+  { key: 'subtipo',           header: 'Subtipo',           required: false, type: 'string' },
+  { key: 'cuit',              header: 'CUIT',              required: false, type: 'string' },
+  { key: 'telefono',          header: 'Telefono',          required: false, type: 'string' },
+  { key: 'email',             header: 'Email',             required: false, type: 'string' },
+  { key: 'direccion',         header: 'Direccion',         required: false, type: 'string' },
+  { key: 'ciudad',            header: 'Ciudad',            required: false, type: 'string' },
+  { key: 'provincia',         header: 'Provincia',         required: false, type: 'string' },
+  { key: 'contacto_principal',header: 'Contacto Principal',required: false, type: 'string' },
+]
+
+const IMPORT_EXAMPLES: unknown[][] = [
+  ['Agroquímicos del Sur', 'Agroquímicos del Sur S.A.', 'Proveedor',  'Insumos',     '30-71234567-9', '0353-4123456', 'ventas@agrosur.com', 'Ruta 9 km 45', 'Villa María',   'Córdoba',  'Carlos Pérez'],
+  ['La Esperanza S.A.',    '',                           'Cliente',    'Ganadería',   '30-68910234-5', '9-351-1234567','',                   'Camino rural',  'Río Cuarto',    'Córdoba',  ''],
+  ['Ing. Agr. Ramírez',    '',                           'Asesor',     'Agronomía',   '20-25678901-3', '9-353-9876543','agr@ramirez.com',    'San Martín 123','Bell Ville',    'Córdoba',  ''],
+]
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type TipoContacto = 'Cliente' | 'Proveedor' | 'Asesor' | 'Contratista' | 'Transportista' | 'Otro'
@@ -482,6 +505,8 @@ export default function Contactos() {
   const [contactos, setContactos] = useState<Contacto[]>([])
   const [loadingContactos, setLoadingContactos] = useState(true)
   const [mostrarForm, setMostrarForm] = useState(false)
+  const [mostrarImport, setMostrarImport] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [busqueda, setBusqueda] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<string>('Todos')
   const [estadoFiltro] = useState<string>('Todos')
@@ -534,7 +559,7 @@ export default function Contactos() {
 
     cargar()
     return () => { cancelled = true }
-  }, [establecimiento?.id])
+  }, [establecimiento?.id, refreshKey])
 
   function handleSuccess(c: Contacto) {
     setContactos(prev => [...prev, c].sort((a, b) => a.nombre.localeCompare(b.nombre)))
@@ -563,6 +588,10 @@ export default function Contactos() {
 
   const actions = (
     <div className="flex gap-2">
+      <button onClick={() => setMostrarImport(true)} disabled={!establecimiento}
+        className="flex items-center gap-1.5 text-xs font-medium border border-borde bg-white text-carbon px-3 py-1.5 rounded-lg hover:bg-tierra transition-colors disabled:opacity-60">
+        <Upload size={12}/> Importar Excel
+      </button>
       <button
         onClick={() => setMostrarForm(true)}
         className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
@@ -575,6 +604,18 @@ export default function Contactos() {
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar title="Contactos" actions={actions}/>
 
+      {mostrarImport && establecimiento && (
+        <ImportExcelModal
+          entityName="contactos"
+          entityLabel="Contactos"
+          tableName="contactos"
+          columns={IMPORT_COLUMNS}
+          exampleRows={IMPORT_EXAMPLES}
+          establecimientoId={establecimiento.id}
+          onClose={() => setMostrarImport(false)}
+          onSuccess={() => setRefreshKey(k => k + 1)}
+        />
+      )}
       {mostrarForm && establecimiento && (
         <FormNuevoContacto
           establecimientoId={establecimiento.id}

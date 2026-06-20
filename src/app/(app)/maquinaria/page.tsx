@@ -1,10 +1,31 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Search, Plus, Wrench, AlertTriangle, X, Calendar } from 'lucide-react'
+import { Search, Plus, Wrench, AlertTriangle, X, Calendar, Upload } from 'lucide-react'
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 import toast from 'react-hot-toast'
+import dynamic from 'next/dynamic'
+import type { ColumnDef } from '@/components/ImportExcelModal'
+const ImportExcelModal = dynamic(() => import('@/components/ImportExcelModal'), { ssr: false })
+
+const IMPORT_COLUMNS: ColumnDef[] = [
+  { key: 'nombre',                    header: 'Nombre',                   required: true,  type: 'string' },
+  { key: 'tipo',                      header: 'Tipo',                     required: true,  type: 'enum',   enumValues: ['Tractor','Cosechadora','Sembradora','Pulverizadora','Camion','Implemento','Otro'] },
+  { key: 'marca',                     header: 'Marca',                    required: false, type: 'string' },
+  { key: 'modelo',                    header: 'Modelo',                   required: false, type: 'string' },
+  { key: 'ano',                       header: 'Año',                      required: false, type: 'number' },
+  { key: 'patente',                   header: 'Patente',                  required: false, type: 'string' },
+  { key: 'horometro',                 header: 'Horometro',                required: false, type: 'number' },
+  { key: 'horometro_proximo_service', header: 'Horometro Proximo Service',required: false, type: 'number' },
+  { key: 'estado',                    header: 'Estado',                   required: true,  type: 'enum',   enumValues: ['Operativa','En mantenimiento','Fuera de servicio'] },
+]
+
+const IMPORT_EXAMPLES: unknown[][] = [
+  ['John Deere 6130J',   'Tractor',     'John Deere', '6130J',  2019, 'AB 123 CD', 2850, 3000, 'Operativa'],
+  ['Case IH 8240',       'Cosechadora', 'Case IH',    '8240',   2017, 'EF 456 GH',  890,    0, 'Operativa'],
+  ['Sembr. Apache 900',  'Sembradora',  'Apache',     '900/39', 2020, '',             0,    0, 'Operativa'],
+]
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type TipoMaquina = 'Tractor' | 'Cosechadora' | 'Sembradora' | 'Pulverizadora' | 'Implemento' | 'Camion' | 'Otro'
@@ -375,6 +396,8 @@ export default function Maquinaria() {
   const [maquinas, setMaquinas] = useState<Maquina[]>([])
   const [loadingMaq, setLoadingMaq] = useState(true)
   const [mostrarForm, setMostrarForm] = useState(false)
+  const [mostrarImport, setMostrarImport] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [busqueda, setBusqueda] = useState('')
   const [tipoFiltro, setTipoFiltro] = useState<string>('Todos')
   const [soloAlertas, setSoloAlertas] = useState(false)
@@ -453,7 +476,7 @@ export default function Maquinaria() {
 
     cargar()
     return () => { cancelled = true }
-  }, [establecimiento?.id])
+  }, [establecimiento?.id, refreshKey])
 
   const loading = loadingEst || loadingMaq
 
@@ -490,6 +513,10 @@ export default function Maquinaria() {
 
   const actions = (
     <div className="flex gap-2">
+      <button onClick={() => setMostrarImport(true)} disabled={!establecimiento}
+        className="flex items-center gap-1.5 text-xs font-medium border border-borde bg-white text-carbon px-3 py-1.5 rounded-lg hover:bg-tierra transition-colors disabled:opacity-60">
+        <Upload size={12}/> Importar Excel
+      </button>
       <button
         onClick={() => setMostrarForm(true)}
         className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
@@ -511,6 +538,18 @@ export default function Maquinaria() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {mostrarImport && establecimiento && (
+        <ImportExcelModal
+          entityName="máquinas"
+          entityLabel="Maquinaria"
+          tableName="maquinas"
+          columns={IMPORT_COLUMNS}
+          exampleRows={IMPORT_EXAMPLES}
+          establecimientoId={establecimiento.id}
+          onClose={() => setMostrarImport(false)}
+          onSuccess={() => setRefreshKey(k => k + 1)}
+        />
+      )}
       {mostrarForm && establecimiento && (
         <FormNuevo
           establecimientoId={establecimiento.id}

@@ -1,10 +1,29 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Search, Plus, Map as MapIcon, Sprout, Calendar, X, TrendingUp, Layers } from 'lucide-react'
+import { Search, Plus, Map as MapIcon, Sprout, Calendar, X, TrendingUp, Layers, Upload } from 'lucide-react'
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 import toast from 'react-hot-toast'
+import dynamic from 'next/dynamic'
+import type { ColumnDef } from '@/components/ImportExcelModal'
+const ImportExcelModal = dynamic(() => import('@/components/ImportExcelModal'), { ssr: false })
+
+const IMPORT_COLUMNS: ColumnDef[] = [
+  { key: 'nombre',       header: 'Nombre',                  required: true,  type: 'string' },
+  { key: 'superficie',   header: 'Superficie (ha)',          required: true,  type: 'number' },
+  { key: 'uso',          header: 'Uso',                     required: true,  type: 'enum',   enumValues: ['Agricola','Ganadero','Mixto'] },
+  { key: 'estado',       header: 'Estado',                  required: true,  type: 'enum',   enumValues: ['Sembrado','Barbecho','Cosechado','Con hacienda','En preparacion'] },
+  { key: 'cultivo_actual',header: 'Cultivo Actual',         required: false, type: 'string' },
+  { key: 'variedad',     header: 'Variedad',                required: false, type: 'string' },
+  { key: 'fecha_siembra',header: 'Fecha Siembra (DD/MM/AAAA)', required: false, type: 'date' },
+]
+
+const IMPORT_EXAMPLES: unknown[][] = [
+  ['Lote 1 Norte', 120, 'Agricola', 'Sembrado',       'Soja',  'DM 4670',  '15/10/2024'],
+  ['Lote 2 Sur',    85, 'Agricola', 'Barbecho',        '',      '',         ''],
+  ['Potrero 3',    200, 'Ganadero', 'Con hacienda',    '',      '',         ''],
+]
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type EstadoLote = 'Sembrado' | 'Barbecho' | 'Cosechado' | 'Con hacienda' | 'En preparacion'
@@ -516,6 +535,8 @@ export default function Lotes() {
   const [estadoFiltro, setEstadoFiltro] = useState<string>('Todos')
   const [seleccionado, setSeleccionado] = useState<Lote | null>(null)
   const [mostrarForm, setMostrarForm] = useState(false)
+  const [mostrarImport, setMostrarImport] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     if (!establecimiento?.id) return
@@ -573,7 +594,7 @@ export default function Lotes() {
 
     cargar()
     return () => { cancelled = true }
-  }, [establecimiento?.id])
+  }, [establecimiento?.id, refreshKey])
 
   const loading = loadingEst || loadingLotes
 
@@ -602,6 +623,10 @@ export default function Lotes() {
 
   const actions = (
     <div className="flex gap-2">
+      <button onClick={() => setMostrarImport(true)} disabled={!establecimiento}
+        className="flex items-center gap-1.5 text-xs font-medium border border-borde bg-white text-carbon px-3 py-1.5 rounded-lg hover:bg-tierra transition-colors disabled:opacity-60">
+        <Upload size={12}/> Importar Excel
+      </button>
       <button
         onClick={() => setMostrarForm(true)}
         disabled={!establecimiento}
@@ -624,6 +649,18 @@ export default function Lotes() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {mostrarImport && establecimiento && (
+        <ImportExcelModal
+          entityName="lotes"
+          entityLabel="Lotes"
+          tableName="lotes"
+          columns={IMPORT_COLUMNS}
+          exampleRows={IMPORT_EXAMPLES}
+          establecimientoId={establecimiento.id}
+          onClose={() => setMostrarImport(false)}
+          onSuccess={() => setRefreshKey(k => k + 1)}
+        />
+      )}
       {mostrarForm && establecimiento && (
         <FormNuevoLote
           establecimientoId={establecimiento.id}

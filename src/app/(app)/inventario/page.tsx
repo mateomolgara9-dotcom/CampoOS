@@ -1,9 +1,33 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Search, Plus, Package, AlertTriangle, X } from 'lucide-react'
+import { Search, Plus, Package, AlertTriangle, X, Upload } from 'lucide-react'
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
+import toast from 'react-hot-toast'
+import dynamic from 'next/dynamic'
+import type { ColumnDef } from '@/components/ImportExcelModal'
+const ImportExcelModal = dynamic(() => import('@/components/ImportExcelModal'), { ssr: false })
+
+const IMPORT_COLUMNS: ColumnDef[] = [
+  { key: 'nombre',          header: 'Nombre',               required: true,  type: 'string' },
+  { key: 'categoria',       header: 'Categoria',             required: true,  type: 'enum',   enumValues: ['Agroquimico','Semilla','Fertilizante','Veterinario','Herramienta','Combustible','Lubricante','Otro'] },
+  { key: 'marca',           header: 'Marca',                required: false, type: 'string' },
+  { key: 'unidad',          header: 'Unidad',               required: false, type: 'enum',   enumValues: ['litros','kg','unidades','dosis','bolsas','tn','bidon'] },
+  { key: 'stock',           header: 'Stock',                required: true,  type: 'number' },
+  { key: 'stock_minimo',    header: 'Stock Minimo',         required: false, type: 'number' },
+  { key: 'stock_maximo',    header: 'Stock Maximo',         required: false, type: 'number' },
+  { key: 'precio_unitario', header: 'Precio Unitario (USD)',required: false, type: 'number' },
+  { key: 'deposito',        header: 'Deposito',             required: false, type: 'string' },
+  { key: 'vencimiento',     header: 'Vencimiento (DD/MM/AAAA)', required: false, type: 'date' },
+  { key: 'codigo',          header: 'Codigo',               required: false, type: 'string' },
+]
+
+const IMPORT_EXAMPLES: unknown[][] = [
+  ['Glifosato 48%',  'Agroquimico',  'Atanor',   'litros',   500, 50, 1000, 1.20, 'Galpón principal', '',              'AGR-001'],
+  ['Soja DM 4670',   'Semilla',      'Don Mario', 'bolsas',  200, 20,  400, 45.0, 'Silo 2',           '',              'SEM-010'],
+  ['Vacuna aftosa',  'Veterinario',  'Biogénesis','dosis',   300, 30,   0,  2.50, 'Heladera',         '31/12/2025',   'VET-003'],
+]
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type Categoria = 'Agroquimico' | 'Semilla' | 'Fertilizante' | 'Veterinario' | 'Herramienta' | 'Combustible' | 'Lubricante' | 'Otro'
@@ -336,6 +360,8 @@ export default function Inventario() {
   const [soloAlertas, setSoloAlertas] = useState(false)
   const [seleccionado, setSeleccionado] = useState<Producto | null>(null)
   const [mostrarForm, setMostrarForm] = useState(false)
+  const [mostrarImport, setMostrarImport] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     if (!establecimiento?.id) return
@@ -378,7 +404,7 @@ export default function Inventario() {
 
     cargar()
     return () => { cancelled = true }
-  }, [establecimiento?.id])
+  }, [establecimiento?.id, refreshKey])
 
   const loading = loadingEst || loadingProd
 
@@ -403,6 +429,10 @@ export default function Inventario() {
 
   const actions = (
     <div className="flex gap-2">
+      <button onClick={() => setMostrarImport(true)} disabled={!establecimiento}
+        className="flex items-center gap-1.5 text-xs font-medium border border-borde bg-white text-carbon px-3 py-1.5 rounded-lg hover:bg-tierra transition-colors disabled:opacity-60">
+        <Upload size={12}/> Importar Excel
+      </button>
       <button
         onClick={() => setMostrarForm(true)}
         className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
@@ -424,6 +454,18 @@ export default function Inventario() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {mostrarImport && establecimiento && (
+        <ImportExcelModal
+          entityName="productos"
+          entityLabel="Inventario"
+          tableName="productos_inventario"
+          columns={IMPORT_COLUMNS}
+          exampleRows={IMPORT_EXAMPLES}
+          establecimientoId={establecimiento.id}
+          onClose={() => setMostrarImport(false)}
+          onSuccess={() => setRefreshKey(k => k + 1)}
+        />
+      )}
       {mostrarForm && establecimiento && (
         <FormNuevo
           establecimientoId={establecimiento.id}
