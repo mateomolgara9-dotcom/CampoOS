@@ -4,6 +4,7 @@ import { Search, Plus, Map as MapIcon, Sprout, Calendar, X, TrendingUp, Layers }
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
+import toast from 'react-hot-toast'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type EstadoLote = 'Sembrado' | 'Barbecho' | 'Cosechado' | 'Con hacienda' | 'En preparacion'
@@ -62,6 +63,208 @@ function getDiasHastaCosecha(d?: string) {
   const hoy = new Date()
   const cosecha = new Date(d)
   return Math.ceil((cosecha.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+// ── Posiciones automáticas en el mapa SVG (viewBox 120×90) ───────────────────
+const POSICIONES_AUTO = [
+  { pos_x:  2, pos_y:  2, ancho: 16, alto: 12 },
+  { pos_x: 20, pos_y:  2, ancho: 16, alto: 12 },
+  { pos_x: 42, pos_y:  2, ancho: 16, alto: 12 },
+  { pos_x: 60, pos_y:  2, ancho: 16, alto: 12 },
+  { pos_x: 80, pos_y:  2, ancho: 18, alto: 12 },
+  { pos_x: 99, pos_y:  2, ancho: 18, alto: 12 },
+  { pos_x:  2, pos_y: 34, ancho: 16, alto: 22 },
+  { pos_x: 20, pos_y: 34, ancho: 16, alto: 22 },
+  { pos_x: 42, pos_y: 34, ancho: 16, alto: 22 },
+  { pos_x: 60, pos_y: 34, ancho: 16, alto: 22 },
+  { pos_x: 80, pos_y: 34, ancho: 16, alto: 22 },
+  { pos_x: 99, pos_y: 34, ancho: 18, alto: 22 },
+]
+
+// ── Formulario nuevo lote ─────────────────────────────────────────────────────
+function FormNuevoLote({
+  establecimientoId, lotesExistentes, onClose, onSuccess,
+}: {
+  establecimientoId: string
+  lotesExistentes: number
+  onClose: () => void
+  onSuccess: (l: Lote) => void
+}) {
+  const pos = POSICIONES_AUTO[lotesExistentes % POSICIONES_AUTO.length]
+
+  const [nombre,       setNombre]       = useState('')
+  const [superficie,   setSuperficie]   = useState('')
+  const [uso,          setUso]          = useState<TipoUso>('Agricola')
+  const [estado,       setEstado]       = useState<EstadoLote>('Barbecho')
+  const [cultivo,      setCultivo]      = useState('')
+  const [variedad,     setVariedad]     = useState('')
+  const [fechaSiembra, setFechaSiembra] = useState('')
+  const [posX,         setPosX]         = useState(String(pos.pos_x))
+  const [posY,         setPosY]         = useState(String(pos.pos_y))
+  const [ancho,        setAncho]        = useState(String(pos.ancho))
+  const [alto,         setAlto]         = useState(String(pos.alto))
+  const [saving,       setSaving]       = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!nombre.trim()) { toast.error('El nombre del lote es obligatorio'); return }
+    const sup = Number(superficie)
+    if (!superficie || isNaN(sup) || sup <= 0) { toast.error('La superficie debe ser un número positivo'); return }
+
+    setSaving(true)
+    try {
+      const supabase = createClient()
+      const id = crypto.randomUUID()
+      const { error: err } = await supabase.from('lotes').insert({
+        id,
+        establecimiento_id: establecimientoId,
+        nombre:          nombre.trim(),
+        superficie:      sup,
+        uso,
+        estado,
+        cultivo_actual:  cultivo.trim()  || null,
+        variedad:        variedad.trim() || null,
+        fecha_siembra:   fechaSiembra    || null,
+        pos_x:  Number(posX)  || pos.pos_x,
+        pos_y:  Number(posY)  || pos.pos_y,
+        ancho:  Number(ancho) || pos.ancho,
+        alto:   Number(alto)  || pos.alto,
+      })
+      if (err) throw err
+      toast.success('Lote guardado correctamente')
+      onSuccess({
+        id,
+        nombre:          nombre.trim(),
+        superficie:      sup,
+        uso,
+        estado,
+        cultivo_actual:  cultivo.trim()  || undefined,
+        variedad:        variedad.trim() || undefined,
+        fecha_siembra:   fechaSiembra    || undefined,
+        pos_x:  Number(posX)  || pos.pos_x,
+        pos_y:  Number(posY)  || pos.pos_y,
+        ancho:  Number(ancho) || pos.ancho,
+        alto:   Number(alto)  || pos.alto,
+        labores: [],
+      })
+    } catch (err) {
+      console.error('[Lotes] Error al guardar:', err)
+      toast.error('No se pudo guardar el lote. Verificá tu conexión e intentá de nuevo.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inp = 'w-full border border-borde rounded-lg px-3 py-2 text-xs outline-none focus:border-verde-act bg-white'
+  const lbl = 'text-xs text-gris block mb-1'
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-borde sticky top-0 bg-white z-10">
+          <h2 className="text-sm font-semibold text-carbon">Nuevo lote</h2>
+          <button onClick={onClose} className="text-gris hover:text-carbon"><X size={16}/></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-5">
+
+          {/* Datos básicos */}
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gris mb-3">Datos básicos</p>
+            <div className="space-y-3">
+              <div>
+                <label className={lbl}>Nombre *</label>
+                <input value={nombre} onChange={e => setNombre(e.target.value)}
+                  placeholder="Ej: Lote 1 Norte" className={inp}/>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={lbl}>Superficie (ha) *</label>
+                  <input type="number" min="0.1" step="0.1" value={superficie}
+                    onChange={e => setSuperficie(e.target.value)}
+                    placeholder="Ej: 120" className={inp}/>
+                </div>
+                <div>
+                  <label className={lbl}>Uso</label>
+                  <select value={uso} onChange={e => setUso(e.target.value as TipoUso)} className={inp}>
+                    <option>Agricola</option>
+                    <option>Ganadero</option>
+                    <option>Mixto</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className={lbl}>Estado</label>
+                <select value={estado} onChange={e => setEstado(e.target.value as EstadoLote)} className={inp}>
+                  <option>Sembrado</option>
+                  <option>Barbecho</option>
+                  <option>Cosechado</option>
+                  <option>Con hacienda</option>
+                  <option>En preparacion</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Cultivo (solo si aplica) */}
+          {(estado === 'Sembrado' || estado === 'Cosechado') && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gris mb-3">Cultivo</p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={lbl}>Cultivo actual</label>
+                    <input value={cultivo} onChange={e => setCultivo(e.target.value)}
+                      placeholder="Ej: Maíz, Soja, Trigo" className={inp}/>
+                  </div>
+                  <div>
+                    <label className={lbl}>Variedad</label>
+                    <input value={variedad} onChange={e => setVariedad(e.target.value)}
+                      placeholder="Ej: DK7500" className={inp}/>
+                  </div>
+                </div>
+                <div>
+                  <label className={lbl}>Fecha de siembra</label>
+                  <input type="date" value={fechaSiembra} onChange={e => setFechaSiembra(e.target.value)} className={inp}/>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Posición en mapa */}
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gris mb-1">Posición en mapa</p>
+            <p className="text-[10px] text-gris mb-3">Calculada automáticamente. Podés ajustarla (viewport 120×90).</p>
+            <div className="grid grid-cols-4 gap-2">
+              {([
+                { label: 'Pos X', val: posX, set: setPosX },
+                { label: 'Pos Y', val: posY, set: setPosY },
+                { label: 'Ancho', val: ancho, set: setAncho },
+                { label: 'Alto',  val: alto,  set: setAlto  },
+              ] as const).map(({ label, val, set }) => (
+                <div key={label}>
+                  <label className={lbl}>{label}</label>
+                  <input type="number" min="1" value={val}
+                    onChange={e => (set as (v: string) => void)(e.target.value)}
+                    className={inp}/>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 border border-borde text-carbon text-xs font-medium py-2 rounded-lg hover:bg-tierra transition-colors">
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 bg-verde-act text-white text-xs font-semibold py-2 rounded-lg hover:bg-verde transition-colors disabled:opacity-60">
+              {saving ? 'Guardando...' : 'Guardar lote'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
 }
 
 // ── Mapa de lotes (SVG) ────────────────────────────────────────────────────────
@@ -312,6 +515,7 @@ export default function Lotes() {
   const [busqueda, setBusqueda] = useState('')
   const [estadoFiltro, setEstadoFiltro] = useState<string>('Todos')
   const [seleccionado, setSeleccionado] = useState<Lote | null>(null)
+  const [mostrarForm, setMostrarForm] = useState(false)
 
   useEffect(() => {
     if (!establecimiento?.id) return
@@ -390,9 +594,18 @@ export default function Lotes() {
     ? (lotesConRend.reduce((acc, l) => acc + (l.rendimiento_estim || 0), 0) / lotesConRend.length).toFixed(1)
     : '—'
 
+  function handleSuccess(nuevo: Lote) {
+    setLotes(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+    setSeleccionado(nuevo)
+    setMostrarForm(false)
+  }
+
   const actions = (
     <div className="flex gap-2">
-      <button className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
+      <button
+        onClick={() => setMostrarForm(true)}
+        disabled={!establecimiento}
+        className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors disabled:opacity-60">
         <Plus size={13}/> Nuevo lote
       </button>
     </div>
@@ -411,6 +624,14 @@ export default function Lotes() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {mostrarForm && establecimiento && (
+        <FormNuevoLote
+          establecimientoId={establecimiento.id}
+          lotesExistentes={lotes.length}
+          onClose={() => setMostrarForm(false)}
+          onSuccess={handleSuccess}
+        />
+      )}
       <Topbar title="Lotes y Cultivos" actions={actions}/>
       <div className="flex-1 overflow-y-auto p-4">
 
@@ -460,7 +681,11 @@ export default function Lotes() {
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <MapIcon size={40} className="text-borde mb-3"/>
             <p className="text-sm font-medium text-carbon mb-1">No hay lotes cargados</p>
-            <p className="text-xs text-gris">Usá el botón <strong>Nuevo lote</strong> para agregar el primer lote del establecimiento</p>
+            <p className="text-xs text-gris mb-4">Usá el botón <strong>Nuevo lote</strong> para agregar el primer lote del establecimiento</p>
+            <button onClick={() => setMostrarForm(true)}
+              className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-4 py-2 rounded-lg hover:bg-verde transition-colors">
+              <Plus size={13}/> Nuevo lote
+            </button>
           </div>
         ) : (
           <>
