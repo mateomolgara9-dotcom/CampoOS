@@ -4,6 +4,7 @@ import { Search, Plus, Wrench, AlertTriangle, X, Calendar } from 'lucide-react'
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
+import toast from 'react-hot-toast'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type TipoMaquina = 'Tractor' | 'Cosechadora' | 'Sembradora' | 'Pulverizadora' | 'Implemento' | 'Camion' | 'Otro'
@@ -231,12 +232,10 @@ function FormNuevo({
     estado: 'Operativa' as EstadoMaquina,
   })
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   async function handleSave() {
-    if (!form.nombre.trim()) return
+    if (!form.nombre.trim()) { toast.error('El nombre del equipo es obligatorio'); return }
     setSaving(true)
-    setError(null)
     try {
       const supabase = createClient()
       const id = crypto.randomUUID()
@@ -259,10 +258,11 @@ function FormNuevo({
 
       if (dbError) {
         console.error('[Maquinaria] Error al guardar:', dbError.message, dbError.code)
-        setError('No se pudo guardar la máquina. Intentá de nuevo.')
+        toast.error('No se pudo guardar la máquina. Intentá de nuevo.')
         return
       }
 
+      toast.success('Máquina guardada correctamente')
       onSuccess({
         id,
         nombre: form.nombre.trim(),
@@ -280,7 +280,7 @@ function FormNuevo({
       })
     } catch (err) {
       console.error('[Maquinaria] Error inesperado:', err)
-      setError('Error inesperado. Intentá de nuevo.')
+      toast.error('Error inesperado. Intentá de nuevo.')
     } finally {
       setSaving(false)
     }
@@ -302,11 +302,6 @@ function FormNuevo({
           </button>
         </div>
         <div className="p-5 grid grid-cols-2 gap-3 max-h-[70vh] overflow-y-auto">
-          {error && (
-            <div role="alert" className="col-span-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">
-              {error}
-            </div>
-          )}
           <div className="col-span-2">
             <label className={lbl}>Nombre del equipo *</label>
             <input className={inp} placeholder="ej. JD 6130J" value={form.nombre}

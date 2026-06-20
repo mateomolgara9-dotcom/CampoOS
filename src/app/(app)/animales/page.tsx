@@ -4,6 +4,7 @@ import { Search, Plus, RefreshCw } from 'lucide-react'
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
 import type { Animal, Categoria, EstadoSanitario } from '@/types'
+import toast from 'react-hot-toast'
 
 const CATEGORIAS: Categoria[] = ['Vaca', 'Toro', 'Novillo', 'Vaquillona', 'Ternero', 'Ternera']
 const ESTADOS: EstadoSanitario[] = ['Al día', 'Vacuna vencida', 'Vacuna próxima', 'Sin RFID']
@@ -34,7 +35,6 @@ function FormNuevoAnimal({ onClose, onSave }: { onClose: () => void; onSave: (a:
     tiene_rfid: false,
   })
   const [guardando, setGuardando] = useState(false)
-  const [error, setError] = useState('')
 
   function validate(): string | null {
     if (!form.caravana.trim()) return 'La caravana es obligatoria'
@@ -51,9 +51,8 @@ function FormNuevoAnimal({ onClose, onSave }: { onClose: () => void; onSave: (a:
 
   async function handleSave() {
     const validationError = validate()
-    if (validationError) { setError(validationError); return }
+    if (validationError) { toast.error(validationError); return }
     setGuardando(true)
-    setError('')
     try {
       const supabase = createClient()
       const { data, error: err } = await supabase
@@ -71,9 +70,10 @@ function FormNuevoAnimal({ onClose, onSave }: { onClose: () => void; onSave: (a:
         .single()
 
       if (err) throw err
+      toast.success('Animal guardado correctamente')
       onSave(data as Animal)
     } catch {
-      setError('No se pudo guardar el animal. Verificá tu conexión e intentá de nuevo.')
+      toast.error('No se pudo guardar el animal. Verificá tu conexión e intentá de nuevo.')
     } finally {
       setGuardando(false)
     }
@@ -135,9 +135,6 @@ function FormNuevoAnimal({ onClose, onSave }: { onClose: () => void; onSave: (a:
               onChange={e => setForm({ ...form, tiene_rfid: e.target.checked })} />
             <label htmlFor="rfid" className="text-xs text-carbon">Tiene caravana RFID</label>
           </div>
-          {error && (
-            <div className="col-span-2 text-xs text-rojo bg-rojo-s px-3 py-2 rounded-lg" role="alert">{error}</div>
-          )}
         </div>
         <div className="px-5 py-4 border-t border-borde flex justify-end gap-2">
           <button onClick={onClose}

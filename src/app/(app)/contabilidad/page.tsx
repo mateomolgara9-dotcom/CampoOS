@@ -4,6 +4,7 @@ import { Search, Plus, TrendingUp, TrendingDown, X, Calculator, FileText, ArrowU
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
+import toast from 'react-hot-toast'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type TipoMovimiento = 'Ingreso' | 'Egreso'
@@ -355,7 +356,6 @@ function FormNuevoMovimiento({
   const [conciliado, setConciliado] = useState(false)
 
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const inputCls = 'w-full text-sm border border-borde rounded-lg px-3 py-2 outline-none focus:border-verde focus:ring-1 focus:ring-verde/20 bg-white text-carbon placeholder:text-gris'
 
@@ -368,11 +368,10 @@ function FormNuevoMovimiento({
   }
 
   async function handleSave() {
-    if (!detalle.trim()) { setError('El detalle es obligatorio.'); return }
-    if (!monto || Number(monto) <= 0) { setError('El monto debe ser mayor a cero.'); return }
+    if (!detalle.trim()) { toast.error('El detalle es obligatorio.'); return }
+    if (!monto || Number(monto) <= 0) { toast.error('El monto debe ser mayor a cero.'); return }
 
     setSaving(true)
-    setError(null)
     try {
       const supabase = createClient()
       const id = crypto.randomUUID()
@@ -395,7 +394,7 @@ function FormNuevoMovimiento({
       })
 
       if (dbError) {
-        setError('Error al guardar: ' + dbError.message)
+        toast.error('Error al guardar: ' + dbError.message)
         return
       }
 
@@ -414,9 +413,10 @@ function FormNuevoMovimiento({
         campania: campania.trim() || undefined,
         conciliado,
       }
+      toast.success('Movimiento registrado correctamente')
       onSuccess(mov)
     } catch (err) {
-      setError('Error inesperado.')
+      toast.error('Error inesperado.')
       console.error(err)
     } finally {
       setSaving(false)
@@ -435,9 +435,6 @@ function FormNuevoMovimiento({
         </div>
 
         <div className="p-5 space-y-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">{error}</div>
-          )}
 
           {/* Tipo */}
           <div>

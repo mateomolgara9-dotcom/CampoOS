@@ -4,6 +4,7 @@ import { Plus, Car, Truck, X, AlertTriangle, Fuel, FileText, MapPin } from 'luci
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
+import toast from 'react-hot-toast'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type TipoVehiculo = 'Camioneta' | 'Camion' | 'Acoplado' | 'Utilitario' | 'Auto' | 'Moto'
@@ -280,15 +281,13 @@ function FormNuevoVehiculo({
   const [observaciones, setObservaciones] = useState('')
 
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const inputCls = 'w-full text-sm border border-borde rounded-lg px-3 py-2 outline-none focus:border-verde focus:ring-1 focus:ring-verde/20 bg-white text-carbon placeholder:text-gris'
 
   async function handleSave() {
-    if (!nombre.trim()) { setError('El nombre es obligatorio.'); return }
+    if (!nombre.trim()) { toast.error('El nombre es obligatorio.'); return }
 
     setSaving(true)
-    setError(null)
     try {
       const supabase = createClient()
       const id = crypto.randomUUID()
@@ -315,10 +314,11 @@ function FormNuevoVehiculo({
       })
 
       if (dbError) {
-        setError('Error al guardar: ' + dbError.message)
+        toast.error('Error al guardar: ' + dbError.message)
         return
       }
 
+      toast.success('Vehículo guardado correctamente')
       onSuccess({
         id,
         nombre: nombre.trim(),
@@ -340,7 +340,7 @@ function FormNuevoVehiculo({
         cargas: [],
       })
     } catch (err) {
-      setError('Error inesperado.')
+      toast.error('Error inesperado.')
       console.error(err)
     } finally {
       setSaving(false)
@@ -359,9 +359,6 @@ function FormNuevoVehiculo({
         </div>
 
         <div className="p-5 space-y-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">{error}</div>
-          )}
 
           {/* Nombre */}
           <div>

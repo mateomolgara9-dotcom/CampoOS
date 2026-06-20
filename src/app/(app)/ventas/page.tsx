@@ -4,6 +4,7 @@ import { Search, Plus, Receipt, TrendingUp, X, FileText, Truck, Wheat } from 'lu
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
+import toast from 'react-hot-toast'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type TipoVenta = 'Hacienda' | 'Granos' | 'Servicios'
@@ -337,7 +338,6 @@ function FormNuevaVenta({
   const [totalServicios, setTotalServicios] = useState('')
 
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   function calcTotal(): number {
     if (tipo === 'Hacienda') {
@@ -352,19 +352,18 @@ function FormNuevaVenta({
   const inputCls = 'w-full text-sm border border-borde rounded-lg px-3 py-2 outline-none focus:border-verde focus:ring-1 focus:ring-verde/20 bg-white text-carbon placeholder:text-gris'
 
   async function handleSave() {
-    if (!cliente.trim()) { setError('El cliente es obligatorio.'); return }
+    if (!cliente.trim()) { toast.error('El cliente es obligatorio.'); return }
     if (tipo === 'Hacienda' && (!categoria.trim() || !cabezas || !pesoPromedio || !precioKg)) {
-      setError('Completá todos los campos de hacienda.'); return
+      toast.error('Completá todos los campos de hacienda.'); return
     }
     if (tipo === 'Granos' && (!producto.trim() || !toneladas || !precioTonelada)) {
-      setError('Completá todos los campos de granos.'); return
+      toast.error('Completá todos los campos de granos.'); return
     }
     if (tipo === 'Servicios' && !totalServicios) {
-      setError('Ingresá el total del servicio.'); return
+      toast.error('Ingresá el total del servicio.'); return
     }
 
     setSaving(true)
-    setError(null)
     try {
       const supabase = createClient()
 
@@ -415,9 +414,9 @@ function FormNuevaVenta({
       const { error: dbError } = await supabase.from('ventas').insert(row)
       if (dbError) {
         if (dbError.code === '23505') {
-          setError(`El número ${numero} ya existe. Intentá de nuevo.`)
+          toast.error(`El número ${numero} ya existe. Intentá de nuevo.`)
         } else {
-          setError('Error al guardar la venta: ' + dbError.message)
+          toast.error('Error al guardar la venta: ' + dbError.message)
         }
         return
       }
@@ -451,9 +450,10 @@ function FormNuevaVenta({
           lote_origen: loteOrigen.trim() || undefined,
         }),
       }
+      toast.success('Venta registrada correctamente')
       onSuccess(venta)
     } catch (err) {
-      setError('Error inesperado.')
+      toast.error('Error inesperado.')
       console.error(err)
     } finally {
       setSaving(false)
@@ -474,9 +474,6 @@ function FormNuevaVenta({
         </div>
 
         <div className="p-5 space-y-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">{error}</div>
-          )}
 
           {/* Tipo */}
           <div>

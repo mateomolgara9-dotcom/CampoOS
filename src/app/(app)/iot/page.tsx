@@ -6,6 +6,7 @@ import { Search, Plus, Antenna, X, Wifi, WifiOff, Battery, BatteryLow, Activity,
 import Topbar from '@/components/Topbar'
 import { createBrowserClient } from '@supabase/ssr'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
+import toast from 'react-hot-toast'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type TipoDispositivo = 'Lector manga' | 'Lector portatil' | 'Bascula' | 'Lector + Bascula' | 'Collar GPS' | 'Estacion meteo'
@@ -203,13 +204,11 @@ function FormNuevoDispositivo({
   const [ubicacion, setUbicacion] = useState('')
   const [firmware, setFirmware]   = useState('')
   const [saving, setSaving]       = useState(false)
-  const [error, setError]         = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!nombre.trim()) { setError('El nombre es obligatorio'); return }
+    if (!nombre.trim()) { toast.error('El nombre es obligatorio'); return }
     setSaving(true)
-    setError('')
     try {
       const id = crypto.randomUUID()
       const { error: err } = await supabase.from('dispositivos_iot').insert({
@@ -224,6 +223,7 @@ function FormNuevoDispositivo({
         firmware:  firmware.trim() || null,
       })
       if (err) throw err
+      toast.success('Dispositivo registrado correctamente')
       onSuccess({
         id,
         nombre:   nombre.trim(),
@@ -240,7 +240,7 @@ function FormNuevoDispositivo({
         sesiones: [],
       })
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al guardar')
+      toast.error(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
       setSaving(false)
     }
@@ -310,8 +310,6 @@ function FormNuevoDispositivo({
               </div>
             </div>
           </div>
-
-          {error && <p className="text-xs text-rojo">{error}</p>}
 
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose}

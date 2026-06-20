@@ -4,6 +4,7 @@ import { Search, Plus, ShoppingCart, X, Truck, FileText, Package, CheckCircle2, 
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
+import toast from 'react-hot-toast'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 type EstadoOC = 'Borrador' | 'Enviada' | 'Confirmada' | 'Recibida' | 'Pagada' | 'Cancelada'
@@ -114,7 +115,6 @@ function FormNuevaOC({
     { descripcion: '', cantidad: '1', unidad: 'unidades', precio_unitario: '' },
   ])
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   // Auto-generar número de OC basado en conteo existente
   useEffect(() => {
@@ -147,17 +147,16 @@ function FormNuevaOC({
 
   async function handleSave() {
     if (!form.proveedor.trim() || !form.numero.trim()) {
-      setError('Completá el proveedor y el número de OC.')
+      toast.error('Completá el proveedor y el número de OC.')
       return
     }
     const validItems = items.filter(i => i.descripcion.trim())
     if (validItems.length === 0) {
-      setError('Agregá al menos un ítem a la orden.')
+      toast.error('Agregá al menos un ítem a la orden.')
       return
     }
 
     setSaving(true)
-    setError(null)
     try {
       const supabase = createClient()
       const compraId = crypto.randomUUID()
@@ -184,7 +183,7 @@ function FormNuevaOC({
 
       if (dbError) {
         console.error('[Compras] Error al crear OC:', dbError.message, dbError.code)
-        setError(dbError.code === '23505'
+        toast.error(dbError.code === '23505'
           ? `El número "${form.numero}" ya existe. Usá otro número.`
           : 'No se pudo crear la orden. Intentá de nuevo.')
         return
@@ -203,10 +202,11 @@ function FormNuevaOC({
       if (itemsError) {
         console.error('[Compras] Error al insertar ítems:', itemsError.message)
         await supabase.from('compras').delete().eq('id', compraId)
-        setError('Error al guardar los ítems. Intentá de nuevo.')
+        toast.error('Error al guardar los ítems. Intentá de nuevo.')
         return
       }
 
+      toast.success('Orden de compra creada correctamente')
       onSuccess({
         id: compraId,
         numero: form.numero.trim(),
@@ -231,7 +231,7 @@ function FormNuevaOC({
       })
     } catch (err) {
       console.error('[Compras] Error inesperado:', err)
-      setError('Error inesperado. Intentá de nuevo.')
+      toast.error('Error inesperado. Intentá de nuevo.')
     } finally {
       setSaving(false)
     }
@@ -254,11 +254,6 @@ function FormNuevaOC({
         </div>
 
         <div className="p-5 max-h-[75vh] overflow-y-auto space-y-4">
-          {error && (
-            <div role="alert" className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">
-              {error}
-            </div>
-          )}
 
           {/* Cabecera OC */}
           <div className="grid grid-cols-2 gap-3">

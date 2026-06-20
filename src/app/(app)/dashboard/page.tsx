@@ -1,25 +1,21 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PawPrint, Map, Antenna, Package, Wrench, Receipt,
          AlertTriangle, Activity, Cloud, Sun, CloudRain } from 'lucide-react'
 import Topbar from '@/components/Topbar'
 import KpiCard from '@/components/KpiCard'
 import type { KPI } from '@/types'
 import Link from 'next/link'
+import { createBrowserClient } from '@supabase/ssr'
+import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 
-const kpis: KPI[] = [
-  { label: 'Hacienda total',   value: '847',       sub: 'animales activos',     trend: '+12 vs mes anterior', trendUp: true,  accent: 'verde' },
-  { label: 'Peso promedio',    value: '318 kg',     sub: 'última pesada 18/05',  trend: 'GDP +0.8 kg/día',     trendUp: true,  accent: 'verde' },
-  { label: 'Lotes activos',    value: '14',         sub: 'de 18 lotes totales',  trend: '3 en barbecho',       trendUp: false, accent: 'ambar' },
-  { label: 'Margen campaña',   value: 'USD 148',    sub: 'por hectárea acum.',   trend: '+18% vs campaña ant.',trendUp: true,  accent: 'azul'  },
-]
-
+// ── Datos estáticos ────────────────────────────────────────────────────────────
 const actividad = [
-  { icon: Antenna,       color: 'bg-verde-s text-verde',      title: 'Pesada RFID completada — Manga Norte',      sub: '183 animales · promedio 312 kg · GDP +0.8 kg/día', time: 'hace 4 min' },
-  { icon: AlertTriangle, color: 'bg-ambar-s text-ambar',      title: 'Alerta sanitaria — Vacuna aftosa vencida',  sub: 'Animales AR-1142 y AR-1143 · Acción requerida',    time: 'hace 1 h'   },
-  { icon: Map,           color: 'bg-verde-s text-verde',      title: 'Aplicación herbicida — Lote 7 El Sauce',    sub: 'Glifosato 3 l/ha · 120 ha · Op: Miguel Ruiz',      time: 'hace 3 h'   },
-  { icon: Package,       color: 'bg-azul-s text-azul',        title: 'Compra registrada — Semillas maíz DK7500',  sub: '450 kg · ARS 2.340.000 · Agroquímicos Sur',        time: 'ayer 16:30' },
-  { icon: Wrench,        color: 'bg-rojo-s text-rojo',        title: 'Service pendiente — John Deere 6130J',      sub: 'Horómetro 2.850 h · Próximo service a 3.000 h',    time: 'ayer 09:00' },
+  { icon: Antenna,       color: 'bg-verde-s text-verde',  title: 'Pesada RFID completada — Manga Norte',      sub: '183 animales · promedio 312 kg · GDP +0.8 kg/día', time: 'hace 4 min' },
+  { icon: AlertTriangle, color: 'bg-ambar-s text-ambar',  title: 'Alerta sanitaria — Vacuna aftosa vencida',  sub: 'Animales AR-1142 y AR-1143 · Acción requerida',    time: 'hace 1 h'   },
+  { icon: Map,           color: 'bg-verde-s text-verde',  title: 'Aplicación herbicida — Lote 7 El Sauce',    sub: 'Glifosato 3 l/ha · 120 ha · Op: Miguel Ruiz',      time: 'hace 3 h'   },
+  { icon: Package,       color: 'bg-azul-s text-azul',    title: 'Compra registrada — Semillas maíz DK7500',  sub: '450 kg · ARS 2.340.000 · Agroquímicos Sur',        time: 'ayer 16:30' },
+  { icon: Wrench,        color: 'bg-rojo-s text-rojo',    title: 'Service pendiente — John Deere 6130J',      sub: 'Horómetro 2.850 h · Próximo service a 3.000 h',    time: 'ayer 09:00' },
 ]
 
 const alertas = [
@@ -30,15 +26,169 @@ const alertas = [
 ]
 
 const modulos = [
-  { href:'/animales',   icon: PawPrint,  label: 'Animales' },
-  { href:'/iot',        icon: Antenna,   label: 'IoT RFID' },
-  { href:'/lotes',      icon: Map,       label: 'Lotes'    },
-  { href:'/inventario', icon: Package,   label: 'Inventario'},
-  { href:'/maquinaria', icon: Wrench,    label: 'Maquinaria'},
-  { href:'/ventas',     icon: Receipt,   label: 'Ventas'   },
+  { href:'/animales',   icon: PawPrint, label: 'Animales'  },
+  { href:'/iot',        icon: Antenna,  label: 'IoT RFID'  },
+  { href:'/lotes',      icon: Map,      label: 'Lotes'     },
+  { href:'/inventario', icon: Package,  label: 'Inventario'},
+  { href:'/maquinaria', icon: Wrench,   label: 'Maquinaria'},
+  { href:'/ventas',     icon: Receipt,  label: 'Ventas'    },
 ]
 
+// ── Tipos ──────────────────────────────────────────────────────────────────────
+type DashData = {
+  totalAnimales: number
+  pesoPromedio: number | null
+  categorias: Record<string, number>
+  lotesActivos: number
+  balanceMes: number
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtBalance(n: number): string {
+  const abs = Math.abs(n)
+  const s = abs >= 1_000_000
+    ? `${(abs / 1_000_000).toFixed(1)}M`
+    : abs.toLocaleString('es-AR', { maximumFractionDigits: 0 })
+  return `${n < 0 ? '-' : ''}$ ${s}`
+}
+
+function getFechaDisplay(): string {
+  const d = new Date()
+  const str = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
+function getCampania(): string {
+  const y = new Date().getFullYear()
+  return `${y}/${(y + 1).toString().slice(2)}`
+}
+
+// ── Componente ─────────────────────────────────────────────────────────────────
 export default function Dashboard() {
+  const { perfil, establecimiento, loading: loadingEst } = useEstablecimiento()
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  const [data, setData] = useState<DashData>({
+    totalAnimales: 0,
+    pesoPromedio: null,
+    categorias: {},
+    lotesActivos: 0,
+    balanceMes: 0,
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!establecimiento) return
+    let cancelled = false
+
+    async function load() {
+      try {
+        const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+          .toISOString().split('T')[0]
+
+        const [animRes, lotesRes, movRes] = await Promise.all([
+          supabase
+            .from('animales')
+            .select('categoria, peso_actual')
+            .eq('establecimiento_id', establecimiento!.id),
+          supabase
+            .from('lotes')
+            .select('id', { count: 'exact', head: true })
+            .eq('establecimiento_id', establecimiento!.id)
+            .in('estado', ['Sembrado', 'Con hacienda', 'En preparacion']),
+          supabase
+            .from('movimientos_contables')
+            .select('tipo, monto')
+            .eq('establecimiento_id', establecimiento!.id)
+            .gte('fecha', inicioMes),
+        ])
+
+        if (cancelled) return
+
+        // animales
+        const animales = animRes.data || []
+        const totalAnimales = animales.length
+        const pesos = animales
+          .map(a => a.peso_actual)
+          .filter((p): p is number => p != null && p > 0)
+        const pesoPromedio = pesos.length > 0
+          ? pesos.reduce((s, p) => s + p, 0) / pesos.length
+          : null
+        const categorias: Record<string, number> = {}
+        for (const a of animales) {
+          if (a.categoria) categorias[a.categoria] = (categorias[a.categoria] || 0) + 1
+        }
+
+        // lotes
+        const lotesActivos = lotesRes.count ?? 0
+
+        // balance
+        const movs = movRes.data || []
+        let ingresos = 0
+        let egresos = 0
+        for (const m of movs) {
+          if (m.tipo === 'Ingreso') ingresos += Number(m.monto)
+          else egresos += Number(m.monto)
+        }
+
+        setData({ totalAnimales, pesoPromedio, categorias, lotesActivos, balanceMes: ingresos - egresos })
+      } catch (err) {
+        console.error('[Dashboard] Error al cargar datos:', err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    load()
+    return () => { cancelled = true }
+  }, [establecimiento])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Derivados ────────────────────────────────────────────────────────────────
+  const barData = [
+    { l: 'Vacas',       v: data.categorias['Vaca']       || 0 },
+    { l: 'Terneros',    v: (data.categorias['Ternero']   || 0) + (data.categorias['Ternera'] || 0) },
+    { l: 'Vaquillonas', v: data.categorias['Vaquillona'] || 0 },
+    { l: 'Novillos',    v: data.categorias['Novillo']    || 0 },
+    { l: 'Toros',       v: data.categorias['Toro']       || 0 },
+  ]
+  const maxV = Math.max(...barData.map(b => b.v), 1)
+
+  const hora = new Date().getHours()
+  const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'
+  const nombre = perfil?.nombre_completo?.split(' ')[0] ?? ''
+
+  const kpis: KPI[] = [
+    {
+      label:  'Hacienda total',
+      value:  loadingEst || loading ? '...' : data.totalAnimales.toString(),
+      sub:    'animales registrados',
+      accent: 'verde',
+    },
+    {
+      label:  'Peso promedio',
+      value:  loadingEst || loading ? '...' : data.pesoPromedio ? `${Math.round(data.pesoPromedio)} kg` : '—',
+      sub:    'última pesada registrada',
+      accent: 'verde',
+    },
+    {
+      label:  'Lotes activos',
+      value:  loadingEst || loading ? '...' : data.lotesActivos.toString(),
+      sub:    'sembrados o con hacienda',
+      accent: 'ambar',
+    },
+    {
+      label:   'Balance del mes',
+      value:   loadingEst || loading ? '...' : fmtBalance(data.balanceMes),
+      sub:     'ingresos − egresos',
+      trend:   !loading && data.balanceMes !== 0 ? (data.balanceMes > 0 ? 'Positivo' : 'Negativo') : undefined,
+      trendUp: data.balanceMes >= 0,
+      accent:  data.balanceMes < 0 ? 'rojo' : 'azul',
+    },
+  ]
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar title="Dashboard" />
@@ -47,8 +197,10 @@ export default function Dashboard() {
         {/* Page header */}
         <div className="flex items-end justify-between mb-4">
           <div>
-            <h1 className="text-xl font-semibold text-carbon">Buenos días, Juan</h1>
-            <p className="text-xs text-gris mt-0.5">Viernes 23 de mayo · Campaña 2025/26</p>
+            <h1 className="text-xl font-semibold text-carbon">
+              {saludo}{nombre ? `, ${nombre}` : ''}
+            </h1>
+            <p className="text-xs text-gris mt-0.5">{getFechaDisplay()} · Campaña {getCampania()}</p>
           </div>
           <div className="flex gap-2">
             <button className="text-xs font-medium px-3 py-1.5 rounded-lg border border-borde bg-white text-carbon hover:bg-tierra transition-colors">Exportar</button>
@@ -100,7 +252,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Rodeo summary */}
+            {/* Rodeo */}
             <div className="bg-white border border-borde rounded-xl overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-borde">
                 <h3 className="text-sm font-medium text-carbon flex items-center gap-1.5">
@@ -108,28 +260,37 @@ export default function Dashboard() {
                 </h3>
                 <Link href="/animales" className="text-xs text-azul hover:underline">Ver detalle →</Link>
               </div>
-              <div className="p-4 flex gap-4 items-end">
-                <div className="flex gap-1.5 items-end h-14 flex-1">
-                  {[{l:'Vacas',v:342,h:'100%'},{l:'Terneros',v:198,h:'58%'},{l:'Vaquillonas',v:167,h:'49%'},{l:'Novillos',v:112,h:'33%'},{l:'Toros',v:28,h:'14%'}].map((b,i)=>(
-                    <div key={i} className="flex flex-col items-center flex-1">
-                      <div className={"w-full rounded-t-sm " + (i===0?"bg-verde-act":"bg-verde-s")} style={{height:b.h}}/>
-                      <p className="text-[9px] text-gris mt-1 text-center leading-tight">{b.l}</p>
-                    </div>
-                  ))}
+              {data.totalAnimales === 0 && !loading ? (
+                <div className="p-6 text-center">
+                  <p className="text-xs text-gris">Sin animales registrados aún</p>
                 </div>
-                <div className="flex flex-col gap-1.5 min-w-[120px]">
-                  {[['Vacas','342'],['Terneros','198'],['Vaquillonas','167'],['Novillos','112'],['Toros','28']].map(([l,v])=>(
-                    <div key={l} className="flex justify-between text-[11px]">
-                      <span className="text-gris">{l}</span>
-                      <span className="font-medium text-carbon">{v}</span>
+              ) : (
+                <div className="p-4 flex gap-4 items-end">
+                  <div className="flex gap-1.5 items-end h-14 flex-1">
+                    {barData.map((b, i) => (
+                      <div key={i} className="flex flex-col items-center flex-1">
+                        <div
+                          className={"w-full rounded-t-sm " + (i === 0 ? 'bg-verde-act' : 'bg-verde-s')}
+                          style={{ height: `${Math.round((b.v / maxV) * 100)}%` }}
+                        />
+                        <p className="text-[9px] text-gris mt-1 text-center leading-tight">{b.l}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-col gap-1.5 min-w-[120px]">
+                    {barData.map(({ l, v }) => (
+                      <div key={l} className="flex justify-between text-[11px]">
+                        <span className="text-gris">{l}</span>
+                        <span className="font-medium text-carbon">{v}</span>
+                      </div>
+                    ))}
+                    <div className="border-t border-borde pt-1.5 flex justify-between text-[11px]">
+                      <span className="font-medium text-carbon">Total</span>
+                      <span className="font-semibold text-verde">{data.totalAnimales}</span>
                     </div>
-                  ))}
-                  <div className="border-t border-borde pt-1.5 flex justify-between text-[11px]">
-                    <span className="font-medium text-carbon">Total</span>
-                    <span className="font-semibold text-verde">847</span>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
