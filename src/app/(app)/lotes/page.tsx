@@ -657,6 +657,7 @@ export default function Lotes() {
           columns={IMPORT_COLUMNS}
           exampleRows={IMPORT_EXAMPLES}
           establecimientoId={establecimiento.id}
+          transformRow={(_, i) => POSICIONES_AUTO[(lotes.length + i) % POSICIONES_AUTO.length]}
           onClose={() => setMostrarImport(false)}
           onSuccess={() => setRefreshKey(k => k + 1)}
         />

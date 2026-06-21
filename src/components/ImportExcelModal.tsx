@@ -32,6 +32,7 @@ export type ImportExcelModalProps = {
   columns: ColumnDef[]
   exampleRows: unknown[][]
   establecimientoId: string
+  transformRow?: (data: Record<string, unknown>, index: number) => Record<string, unknown>
   onClose: () => void
   onSuccess: (count: number) => void
 }
@@ -172,7 +173,7 @@ function parseAndValidate(
 // ── Componente ─────────────────────────────────────────────────────────────────
 export default function ImportExcelModal({
   entityName, entityLabel, tableName, columns, exampleRows,
-  establecimientoId, onClose, onSuccess,
+  establecimientoId, transformRow, onClose, onSuccess,
 }: ImportExcelModalProps) {
   const supabase  = createClient()
   const fileRef   = useRef<HTMLInputElement>(null)
@@ -230,10 +231,11 @@ export default function ImportExcelModal({
     if (valid.length === 0) return
     setImporting(true)
     try {
-      const payload = valid.map(r => ({
+      const payload = valid.map((r, i) => ({
         id: crypto.randomUUID(),
         establecimiento_id: establecimientoId,
         ...r.data,
+        ...(transformRow ? transformRow(r.data, i) : {}),
       }))
       const { error } = await supabase.from(tableName).insert(payload)
       if (error) throw error
@@ -241,8 +243,9 @@ export default function ImportExcelModal({
       onSuccess(valid.length)
       onClose()
     } catch (err) {
+      const msg = (err as { message?: string })?.message ?? 'error desconocido'
       console.error(`[Import ${tableName}]`, err)
-      toast.error('No se pudo importar. Verificá los datos e intentá de nuevo.')
+      toast.error(`Error al importar: ${msg}`)
     } finally {
       setImporting(false)
     }

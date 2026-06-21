@@ -462,6 +462,11 @@ export default function Inventario() {
           columns={IMPORT_COLUMNS}
           exampleRows={IMPORT_EXAMPLES}
           establecimientoId={establecimiento.id}
+          transformRow={(data) => ({
+            stock_minimo:    data.stock_minimo    ?? 0,
+            unidad:          data.unidad          ?? 'unidades',
+            stock_maximo:    data.stock_maximo    || null,
+          })}
           onClose={() => setMostrarImport(false)}
           onSuccess={() => setRefreshKey(k => k + 1)}
         />
