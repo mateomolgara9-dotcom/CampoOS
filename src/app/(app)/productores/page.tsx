@@ -52,8 +52,9 @@ function FormProductor({ userId, editar, onClose, onSaved }: {
       toast.success(editar ? 'Productor actualizado' : 'Productor creado')
       onSaved()
     } catch (err) {
+      const msg = (err as { message?: string })?.message ?? 'error desconocido'
       console.error('[Productores] Error al guardar:', err)
-      toast.error('No se pudo guardar el productor')
+      toast.error(`No se pudo guardar el productor: ${msg}`)
     } finally {
       setSaving(false)
     }
@@ -150,8 +151,9 @@ function FormCampo({ productor, onClose, onSaved }: {
       toast.success('Campo creado')
       onSaved()
     } catch (err) {
+      const msg = (err as { message?: string })?.message ?? 'error desconocido'
       console.error('[Campos] Error al guardar:', err)
-      toast.error('No se pudo crear el campo')
+      toast.error(`No se pudo crear el campo: ${msg}`)
     } finally {
       setSaving(false)
     }
