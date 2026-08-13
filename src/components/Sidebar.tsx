@@ -4,7 +4,7 @@ import Link from 'next/link'
 import {
   Home, PawPrint, Map, Package, Wrench,
   Receipt, Calculator, Users, Antenna,
-  Settings, ShoppingCart, UserCircle, Car,
+  Settings, ShoppingCart, UserCircle, Car, Briefcase,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import clsx from 'clsx'
@@ -16,6 +16,10 @@ const navItems = [
   { href: '/inventario', icon: Package,    label: 'Inventario' },
   { href: '/maquinaria', icon: Wrench,     label: 'Maquinaria' },
   { href: '/flota',      icon: Car,        label: 'Flota' },
+]
+
+const navItemsAsesor = [
+  { href: '/productores', icon: Briefcase, label: 'Productores' },
 ]
 
 const navItems2 = [
@@ -63,6 +67,9 @@ export default function Sidebar() {
       </Link>
 
       {navItems.map(item => <NavItem key={item.href} {...item} />)}
+
+      <div className="w-7 h-px bg-white/10 my-2" />
+      {navItemsAsesor.map(item => <NavItem key={item.href} {...item} />)}
 
       <div className="w-7 h-px bg-white/10 my-2" />
       {navItems2.map(item => <NavItem key={item.href} {...item} />)}

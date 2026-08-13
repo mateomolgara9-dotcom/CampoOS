@@ -2,6 +2,10 @@
 -- CampoOS — Row Level Security (RLS) completo
 -- Aplicar DESPUÉS de schema.sql
 -- ============================================================
+-- NOTA: cambios posteriores se versionan en supabase/migrations/ (aplicar en
+-- orden). La migración 02 REEMPLAZA mi_est_id() y las policies de
+-- establecimientos de este archivo — lo de acá es el estado base original.
+-- ============================================================
 -- Patrón: cada usuario accede solo a los datos de su establecimiento.
 -- La tabla perfil_usuarios vincula auth.uid() con establecimiento_id.
 -- ============================================================
@@ -489,4 +493,46 @@ CREATE POLICY "lecturas_rfid_update" ON lecturas_rfid
 CREATE POLICY "lecturas_rfid_delete" ON lecturas_rfid
   FOR DELETE USING (
     dispositivo_id IN (SELECT id FROM dispositivos_iot WHERE establecimiento_id = mi_est_id())
+  );
+
+
+-- ════════════════════════════════════════════════════════════
+-- MÓDULO ASESOR — VISITAS DE CAMPO
+-- Patrón de aislamiento IDÉNTICO a lotes (establecimiento_id = mi_est_id()),
+-- con refuerzos: escritura sólo admin/operario, autor anti-falsificación,
+-- lote obligado al mismo establecimiento, y DELETE sólo admin o autor.
+-- (definido también en supabase/migrations/01_visitas_campo.sql)
+-- ════════════════════════════════════════════════════════════
+
+ALTER TABLE visitas_campo ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "visitas_campo_select" ON visitas_campo
+  FOR SELECT USING (establecimiento_id = mi_est_id());
+
+CREATE POLICY "visitas_campo_insert" ON visitas_campo
+  FOR INSERT WITH CHECK (
+        establecimiento_id = mi_est_id()
+    AND asesor_id = auth.uid()
+    AND (SELECT rol FROM perfil_usuarios WHERE user_id = auth.uid()) IN ('admin','operario')
+    AND (lote_id IS NULL OR lote_id IN (SELECT id FROM lotes WHERE establecimiento_id = mi_est_id()))
+  );
+
+CREATE POLICY "visitas_campo_update" ON visitas_campo
+  FOR UPDATE
+  USING (
+        establecimiento_id = mi_est_id()
+    AND (SELECT rol FROM perfil_usuarios WHERE user_id = auth.uid()) IN ('admin','operario')
+  )
+  WITH CHECK (
+        establecimiento_id = mi_est_id()
+    AND (lote_id IS NULL OR lote_id IN (SELECT id FROM lotes WHERE establecimiento_id = mi_est_id()))
+  );
+
+CREATE POLICY "visitas_campo_delete" ON visitas_campo
+  FOR DELETE USING (
+        establecimiento_id = mi_est_id()
+    AND (
+          (SELECT rol FROM perfil_usuarios WHERE user_id = auth.uid()) = 'admin'
+       OR asesor_id = auth.uid()
+    )
   );
