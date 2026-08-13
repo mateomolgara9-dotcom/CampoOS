@@ -127,7 +127,6 @@ function FormCampo({ productor, onClose, onSaved }: {
   const [nombre,     setNombre]     = useState('')
   const [provincia,  setProvincia]  = useState('')
   const [superficie, setSuperficie] = useState('')
-  const [cuig,       setCuig]       = useState('')
   const [saving,     setSaving]     = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -144,7 +143,6 @@ function FormCampo({ productor, onClose, onSaved }: {
         nombre:       nombre.trim(),
         provincia:    provincia.trim() || null,
         superficie:   sup,
-        cuig:         cuig.trim() || null,
         productor_id: productor.id,
       })
       if (error) throw error
@@ -183,10 +181,6 @@ function FormCampo({ productor, onClose, onSaved }: {
               <label className={lbl}>Provincia</label>
               <input value={provincia} onChange={e => setProvincia(e.target.value)} className={inp} />
             </div>
-          </div>
-          <div>
-            <label className={lbl}>CUIG (opcional)</label>
-            <input value={cuig} onChange={e => setCuig(e.target.value)} className={inp} />
           </div>
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose}
