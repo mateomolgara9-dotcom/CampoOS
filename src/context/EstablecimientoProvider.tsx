@@ -48,6 +48,9 @@ type EstablecimientoContextValue = {
   needsOnboarding: boolean
   cambiarCampo: (estId: string) => Promise<void>
   refrescar: () => Promise<void>
+  /** null = mostrar todos los módulos. Array = solo esos (+ los fijos). Persiste en el navegador. */
+  modulosVisibles: string[] | null
+  setModulosVisibles: (keys: string[] | null) => void
 }
 
 const EstablecimientoContext = createContext<EstablecimientoContextValue | undefined>(undefined)
@@ -60,6 +63,7 @@ export function EstablecimientoProvider({ children }: { children: React.ReactNod
   const [productores, setProductores] = useState<Productor[]>([])
   const [campos, setCampos] = useState<Establecimiento[]>([])
   const [loading, setLoading] = useState(true)
+  const [modulosVisibles, setMV] = useState<string[] | null>(null)
 
   const cargar = useCallback(async () => {
     const supabase = createClient()
@@ -147,6 +151,21 @@ export function EstablecimientoProvider({ children }: { children: React.ReactNod
     setEstablecimiento(target)
   }, [userId, campos])
 
+  useEffect(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('campoos_modulos_visibles') : null
+      if (raw) setMV(JSON.parse(raw) as string[])
+    } catch { /* ignore */ }
+  }, [])
+
+  const setModulosVisibles = useCallback((keys: string[] | null) => {
+    setMV(keys)
+    try {
+      if (keys === null) localStorage.removeItem('campoos_modulos_visibles')
+      else localStorage.setItem('campoos_modulos_visibles', JSON.stringify(keys))
+    } catch { /* ignore */ }
+  }, [])
+
   const productorActivo = establecimiento?.productor_id
     ? productores.find(p => p.id === establecimiento.productor_id) ?? null
     : null
@@ -156,6 +175,7 @@ export function EstablecimientoProvider({ children }: { children: React.ReactNod
   const value: EstablecimientoContextValue = {
     userId, userEmail, perfil, establecimiento, productorActivo,
     productores, campos, loading, needsOnboarding, cambiarCampo, refrescar: cargar,
+    modulosVisibles, setModulosVisibles,
   }
 
   return <EstablecimientoContext.Provider value={value}>{children}</EstablecimientoContext.Provider>
