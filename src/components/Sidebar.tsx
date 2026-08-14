@@ -4,7 +4,7 @@ import Link from 'next/link'
 import {
   Home, PawPrint, Map, Package, Wrench,
   Receipt, Calculator, Users, Antenna,
-  Settings, ShoppingCart, UserCircle, Car, Briefcase,
+  Settings, ShoppingCart, UserCircle, Car, Briefcase, ClipboardList,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import clsx from 'clsx'
@@ -20,6 +20,7 @@ const navItems = [
 
 const navItemsAsesor = [
   { href: '/productores', icon: Briefcase, label: 'Productores' },
+  { href: '/cuaderno',    icon: ClipboardList, label: 'Cuaderno' },
 ]
 
 const navItems2 = [

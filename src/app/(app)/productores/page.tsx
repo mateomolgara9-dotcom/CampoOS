@@ -208,7 +208,7 @@ export default function ProductoresPage() {
   async function trabajarAca(estId: string) {
     await cambiarCampo(estId)
     toast.success('Campo activo cambiado')
-    router.push('/dashboard')
+    router.push('/cuaderno')
   }
 
   function onSaved() {
