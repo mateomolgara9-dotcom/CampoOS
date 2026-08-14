@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import {
   Plus, X, Trash2, Pencil, User, FileText, Calendar,
-  Sprout, ClipboardList,
+  Sprout, ClipboardList, FileDown,
 } from 'lucide-react'
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
@@ -361,7 +361,7 @@ function TimelineLabor({ labor, onEdit, onDelete }: { labor: Labor; onEdit: () =
 
 // ── Página principal ─────────────────────────────────────────────────────────
 export default function CuadernoPage() {
-  const { establecimiento, productorActivo, userId, loading: loadingEst } = useEstablecimiento()
+  const { establecimiento, productorActivo, perfil, userId, loading: loadingEst } = useEstablecimiento()
   const [campanias, setCampanias] = useState<Campania[]>([])
   const [campaniaSel, setCampaniaSel] = useState<string>('')
   const [labores, setLabores] = useState<Labor[]>([])
@@ -439,13 +439,49 @@ export default function CuadernoPage() {
     setRefreshKey(k => k + 1)
   }
 
+  async function generarInforme() {
+    if (!campaniaObj) return
+    const fmt = (d: string | null) => { if (!d) return '—'; const [y, m, day] = d.split('-'); return `${day}/${m}/${y}` }
+    try {
+      const { descargarInforme } = await import('@/components/InformePDF')
+      await descargarInforme({
+        asesor:     perfil?.nombre_completo ?? '—',
+        productor:  productorActivo?.nombre ?? establecimiento?.nombre ?? '—',
+        campo:      establecimiento?.nombre ?? '—',
+        campania:   campaniaObj.nombre,
+        cultivo:    campaniaObj.cultivo ?? '—',
+        superficie: campaniaObj.superficie ? `${campaniaObj.superficie} ha` : '—',
+        emitido:    new Date().toLocaleDateString('es-AR'),
+        labores: labores.map(l => ({
+          fecha:           fmt(l.fecha),
+          tipo:            l.tipo ?? 'Labor',
+          responsable:     l.responsable ?? '',
+          comprobante:     l.comprobante ?? '',
+          productos:       l.productos.map(p => p.producto + (p.cantidad ? ` (${p.cantidad}${p.unidad || ''})` : '')).join(', '),
+          estadoFeno:      l.estado_fenologico ?? '',
+          observaciones:   l.observaciones ?? '',
+          recomendaciones: l.recomendaciones ?? '',
+        })),
+      })
+    } catch (err) {
+      console.error('[Informe] Error:', err)
+      toast.error('No se pudo generar el informe')
+    }
+  }
+
   const loading = loadingEst || loadingData
 
   const actions = campaniaObj && (
-    <button onClick={() => setFormLabor({})}
-      className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
-      <Plus size={13} /> Nueva labor
-    </button>
+    <div className="flex gap-2">
+      <button onClick={generarInforme}
+        className="flex items-center gap-1.5 text-xs font-medium border border-borde bg-white text-carbon px-3 py-1.5 rounded-lg hover:bg-tierra transition-colors">
+        <FileDown size={13} /> Generar informe
+      </button>
+      <button onClick={() => setFormLabor({})}
+        className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
+        <Plus size={13} /> Nueva labor
+      </button>
+    </div>
   )
 
   return (
