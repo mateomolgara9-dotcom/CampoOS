@@ -48,21 +48,21 @@ function SwitcherCampo() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 hover:bg-tierra rounded-lg px-2 py-1 transition-colors"
+        className="flex items-center gap-2 hover:bg-tierra rounded-lg px-2 py-1 transition-colors max-w-full"
         aria-label="Cambiar de campo"
       >
         <span className="w-2 h-2 rounded-full bg-verde-ac flex-shrink-0" />
-        <span className="text-sm font-medium text-carbon max-w-[280px] truncate">{label}</span>
+        <span className="text-sm font-medium text-carbon max-w-[45vw] sm:max-w-[280px] truncate">{label}</span>
         <ChevronDown size={14} className="text-gris flex-shrink-0" />
       </button>
 
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1.5 w-72 bg-white border border-borde rounded-xl shadow-lg z-50 overflow-hidden max-h-[70vh] overflow-y-auto">
+          <div className="absolute left-0 top-full mt-1.5 w-[min(18rem,90vw)] bg-white border border-borde rounded-xl shadow-lg z-50 overflow-hidden max-h-[70vh] overflow-y-auto">
             {campos.length === 0 && (
               <div className="px-3 py-3 text-xs text-gris">
                 No hay campos todavía. Creá un productor y su campo en <strong>Productores</strong>.
@@ -112,27 +112,27 @@ export default function Topbar({ title, subtitle, actions }: TopbarProps) {
 
   return (
     <div
-      className="bg-white border-b border-borde h-[52px] flex items-center px-5 gap-3 flex-shrink-0"
+      className="bg-white border-b border-borde h-[52px] flex items-center px-3 sm:px-5 gap-2 sm:gap-3 flex-shrink-0"
       aria-label={subtitle ? `${title} — ${subtitle}` : title}
     >
       <SwitcherCampo />
 
-      <span className="text-xs text-gris flex items-center gap-1.5">
+      <span className="text-xs text-gris hidden md:flex items-center gap-1.5">
         <span className="w-1.5 h-1.5 rounded-full bg-verde-ac inline-block" />
         Sincronizado
       </span>
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-2 flex-shrink-0">
         {actions}
         <button
-          className="w-8 h-8 rounded-lg border border-borde flex items-center justify-center text-gris hover:bg-tierra transition-colors relative"
+          className="w-8 h-8 rounded-lg border border-borde hidden sm:flex items-center justify-center text-gris hover:bg-tierra transition-colors relative"
           aria-label="Notificaciones"
         >
           <Bell size={15} />
           <span className="absolute -top-1 -right-1 bg-rojo text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-semibold">3</span>
         </button>
         <button
-          className="w-8 h-8 rounded-lg border border-borde flex items-center justify-center text-gris hover:bg-tierra transition-colors"
+          className="w-8 h-8 rounded-lg border border-borde hidden sm:flex items-center justify-center text-gris hover:bg-tierra transition-colors"
           aria-label="Buscar"
         >
           <Search size={15} />
@@ -140,7 +140,7 @@ export default function Topbar({ title, subtitle, actions }: TopbarProps) {
 
         <div className="relative group">
           <button
-            className="w-8 h-8 rounded-full bg-verde flex items-center justify-center text-white text-xs font-semibold"
+            className="w-8 h-8 rounded-full bg-verde flex items-center justify-center text-white text-xs font-semibold flex-shrink-0"
             aria-label="Menú de usuario"
           >
             {iniciales}

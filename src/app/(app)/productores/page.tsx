@@ -219,8 +219,8 @@ export default function ProductoresPage() {
 
   const actions = (
     <button onClick={() => setFormProd({})}
-      className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
-      <Plus size={13} /> Nuevo productor
+      className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-2.5 sm:px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
+      <Plus size={13} /> <span className="hidden sm:inline">Nuevo productor</span>
     </button>
   )
 
