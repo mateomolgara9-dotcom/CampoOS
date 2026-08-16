@@ -674,7 +674,7 @@ export default function Lotes() {
       <div className="flex-1 overflow-y-auto p-4">
 
         {/* KPIs */}
-        <div className="grid grid-cols-4 gap-2.5 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
           {[
             { l:'Lotes totales',     v: lotes.length.toString(),     s: totalHa + ' ha en total',     c:'border-t-verde-ac' },
             { l:'Lotes sembrados',   v: sembrados.toString(),         s: haSembradas + ' ha activas',  c:'border-t-verde-ac' },
@@ -728,7 +728,7 @@ export default function Lotes() {
         ) : (
           <>
             {/* Mapa + Detalle */}
-            <div className="grid grid-cols-[1fr_320px] gap-3 mb-4">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-3 mb-4">
               <MapaLotes lotes={filtrados} seleccionado={seleccionado} onSelect={setSeleccionado}/>
               {seleccionado && <PanelDetalleLote lote={seleccionado} onClose={() => setSeleccionado(null)}/>}
             </div>

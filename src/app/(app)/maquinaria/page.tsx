@@ -561,7 +561,7 @@ export default function Maquinaria() {
       <div className="flex-1 overflow-y-auto p-4">
 
         {/* KPIs */}
-        <div className="grid grid-cols-4 gap-2.5 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
           {[
             { l:'Total equipos',       v: maquinas.length.toString(),               s: operativas + ' operativas',             c:'border-t-verde-ac' },
             { l:'Alertas de service',  v: alertasService.toString(),                 s:'requieren atención pronto',              c: alertasService > 0 ? 'border-t-rojo' : 'border-t-verde-ac' },
@@ -615,7 +615,7 @@ export default function Maquinaria() {
             <p className="text-xs text-gris">Usá el botón <strong>Nueva máquina</strong> para agregar el primer equipo</p>
           </div>
         ) : (
-          <div className={"grid gap-3 " + (seleccionada ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
+          <div className={"grid gap-3 " + (seleccionada ? 'grid-cols-1 lg:grid-cols-[1fr_320px]' : 'grid-cols-1')}>
 
             {/* Tabla */}
             <div className="bg-white border border-borde rounded-xl overflow-hidden">

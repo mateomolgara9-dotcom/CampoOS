@@ -642,7 +642,7 @@ export default function Flota() {
       <div className="flex-1 overflow-y-auto p-4">
 
         {/* KPIs */}
-        <div className="grid grid-cols-4 gap-2.5 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
           <div className="bg-white border border-borde rounded-xl p-3 border-t-2 border-t-verde-ac">
             <div className="text-[10px] text-gris mb-1 uppercase tracking-wide font-medium">Total vehículos</div>
             <div className="text-xl font-semibold text-carbon">{vehiculos.length}</div>
@@ -684,7 +684,7 @@ export default function Flota() {
             <p className="text-xs text-gris">Registrá tu primer vehículo con el botón "Nuevo vehículo"</p>
           </div>
         ) : (
-          <div className={"grid gap-4 " + (seleccionado ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
+          <div className={"grid gap-4 " + (seleccionado ? 'grid-cols-1 lg:grid-cols-[1fr_320px]' : 'grid-cols-1')}>
             {/* Grilla de vehiculos */}
             <div className={"grid gap-3 " + (seleccionado ? 'grid-cols-2' : 'grid-cols-3')}>
               {vehiculos.map(v => {

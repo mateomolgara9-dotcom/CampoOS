@@ -611,7 +611,7 @@ export default function IoT() {
         ) : (
           <>
             {/* KPIs */}
-            <div className="grid grid-cols-4 gap-2.5 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
               <div className="bg-white border border-borde rounded-xl p-3 border-t-2 border-t-verde-ac">
                 <div className="text-[10px] text-gris mb-1 uppercase tracking-wide font-medium">Dispositivos totales</div>
                 <div className="text-xl font-semibold text-carbon">{totalDispositivos}</div>
@@ -673,7 +673,7 @@ export default function IoT() {
                   <p className="text-xs text-gris">No hay dispositivos que coincidan con la búsqueda</p>
                 </div>
               ) : (
-                <div className={"grid gap-3 " + (seleccionado ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
+                <div className={"grid gap-3 " + (seleccionado ? 'grid-cols-1 lg:grid-cols-[1fr_320px]' : 'grid-cols-1')}>
                   <div className={"grid gap-2.5 " + (seleccionado ? 'grid-cols-2' : 'grid-cols-3')}>
                     {dispositivosFiltrados.map(d => {
                       const colors   = getEstadoColor(d.estado)

@@ -790,7 +790,7 @@ export default function Ventas() {
       <div className="flex-1 overflow-y-auto p-4">
 
         {/* KPIs */}
-        <div className="grid grid-cols-4 gap-2.5 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
           {[
             { l:'Vendido acumulado',    v: formatUSD(totalAcumulado),          s:'ventas liquidadas',              c:'border-t-verde-ac' },
             { l:'Por cobrar',           v: formatUSD(totalPendiente),           s: pendientes.length + ' ventas pendientes', c:'border-t-ambar' },
@@ -806,7 +806,7 @@ export default function Ventas() {
         </div>
 
         {/* Grafico + Detalle */}
-        <div className={"grid gap-3 mb-4 " + (seleccionada ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
+        <div className={"grid gap-3 mb-4 " + (seleccionada ? 'grid-cols-1 lg:grid-cols-[1fr_320px]' : 'grid-cols-1')}>
           <GraficoMensual ventas={ventas}/>
           {seleccionada && <PanelDetalleVenta venta={seleccionada} onClose={() => setSeleccionada(null)}/>}
         </div>

@@ -627,7 +627,7 @@ export default function Contactos() {
       <div className="flex-1 overflow-y-auto p-4">
 
         {/* KPIs */}
-        <div className="grid grid-cols-4 gap-2.5 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
           {[
             { l:'Total contactos',  v: totalContactos.toString(), s:'en la base de datos',     c:'border-t-verde-ac' },
             { l:'Clientes activos', v: clientes.toString(),       s:'compradores recurrentes', c:'border-t-verde-ac' },
@@ -680,7 +680,7 @@ export default function Contactos() {
           </div>
         ) : (
           <>
-            <div className={"grid gap-3 " + (seleccionado ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
+            <div className={"grid gap-3 " + (seleccionado ? 'grid-cols-1 lg:grid-cols-[1fr_320px]' : 'grid-cols-1')}>
               <div className={"grid gap-2.5 " + (seleccionado ? 'grid-cols-2' : 'grid-cols-3')}>
                 {filtrados.map(c => (
                   <div key={c.id}

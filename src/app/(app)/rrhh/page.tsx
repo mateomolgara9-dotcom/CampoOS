@@ -693,7 +693,7 @@ export default function RRHH() {
       <div className="flex-1 overflow-y-auto p-4">
 
         {/* KPIs */}
-        <div className="grid grid-cols-4 gap-2.5 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
           <div className="bg-white border border-borde rounded-xl p-3 border-t-2 border-t-verde-ac">
             <div className="text-[10px] text-gris mb-1 uppercase tracking-wide font-medium">Total personal</div>
             <div className="text-xl font-semibold text-carbon">{totalEmpleados}</div>
@@ -766,7 +766,7 @@ export default function RRHH() {
             <p className="text-sm text-gris">Cargando personal...</p>
           </div>
         ) : (
-          <div className={"grid gap-3 " + (seleccionado ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
+          <div className={"grid gap-3 " + (seleccionado ? 'grid-cols-1 lg:grid-cols-[1fr_320px]' : 'grid-cols-1')}>
             <div className="bg-white border border-borde rounded-xl overflow-hidden">
               <table className="w-full text-xs">
                 <thead>
