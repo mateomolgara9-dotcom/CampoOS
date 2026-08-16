@@ -239,7 +239,7 @@ function FormLabor({ estId, userId, campaniaId, loteId, editar, onClose, onSaved
             </div>
             <div>
               <label className={lbl}>Responsable</label>
-              <SelectorContacto establecimientoId={estId} tipo="Contratista" valor={responsable}
+              <SelectorContacto valor={responsable}
                 onChange={setResponsable} placeholder="Elegí o registrá" className={inp} />
             </div>
           </div>

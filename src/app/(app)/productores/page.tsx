@@ -64,7 +64,7 @@ function FormProductor({ userId, editar, onClose, onSaved }: {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-borde sticky top-0 bg-white z-10">
-          <h2 className="text-sm font-semibold text-carbon">{editar ? 'Editar productor' : 'Nuevo productor'}</h2>
+          <h2 className="text-sm font-semibold text-carbon">{editar ? 'Editar contacto' : 'Nuevo contacto'}</h2>
           <button onClick={onClose} className="text-gris hover:text-carbon"><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-3">
@@ -220,7 +220,7 @@ export default function ProductoresPage() {
   const actions = (
     <button onClick={() => setFormProd({})}
       className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-2.5 sm:px-3 py-1.5 rounded-lg hover:bg-verde transition-colors">
-      <Plus size={13} /> <span className="hidden sm:inline">Nuevo productor</span>
+      <Plus size={13} /> <span className="hidden sm:inline">Nuevo contacto</span>
     </button>
   )
 
@@ -233,7 +233,7 @@ export default function ProductoresPage() {
         <FormCampo productor={formCampo} onClose={() => setFormCampo(null)} onSaved={onSaved} />
       )}
 
-      <Topbar title="Productores" actions={actions} />
+      <Topbar title="Contactos" actions={actions} />
 
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
@@ -241,11 +241,11 @@ export default function ProductoresPage() {
         ) : productores.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Briefcase size={40} className="text-borde mb-3" />
-            <p className="text-sm font-medium text-carbon mb-1">Todavía no tenés productores</p>
-            <p className="text-xs text-gris mb-4">Creá tu primer productor y después cargale sus campos.</p>
+            <p className="text-sm font-medium text-carbon mb-1">Todavía no tenés contactos</p>
+            <p className="text-xs text-gris mb-4">Creá tu primer contacto. A los que sean productores les cargás campos.</p>
             <button onClick={() => setFormProd({})}
               className="flex items-center gap-1.5 text-xs font-semibold bg-verde-act text-white px-4 py-2 rounded-lg hover:bg-verde transition-colors">
-              <Plus size={13} /> Nuevo productor
+              <Plus size={13} /> Nuevo contacto
             </button>
           </div>
         ) : (
@@ -268,7 +268,7 @@ export default function ProductoresPage() {
                         </div>
                       )}
                     </div>
-                    <button onClick={() => setFormProd({ editar: prod })} title="Editar productor"
+                    <button onClick={() => setFormProd({ editar: prod })} title="Editar contacto"
                       className="text-gris hover:text-carbon flex-shrink-0"><Pencil size={14} /></button>
                   </div>
 
