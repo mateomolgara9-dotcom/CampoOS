@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Home, PawPrint, Map, Package, Wrench, Car, Antenna,
   Receipt, ShoppingCart, UserCircle, Calculator, Users,
-  Settings, ClipboardList,
+  Settings, ClipboardList, Briefcase,
 } from 'lucide-react'
 
 export type GrupoModulo = 'General' | 'Asesor' | 'Producción' | 'Comercial'
@@ -18,7 +18,8 @@ export type ModuloDef = {
 // Orden = orden en el sidebar. Inicio arriba, Configuración abajo (ambos fijos).
 export const MODULOS: ModuloDef[] = [
   { href: '/dashboard',    label: 'Inicio',        icon: Home,          grupo: 'General',    fijo: true },
-  { href: '/productores',  label: 'Contactos',     icon: UserCircle,    grupo: 'Asesor' },
+  { href: '/productores',  label: 'Productores',   icon: Briefcase,     grupo: 'Asesor' },
+  { href: '/contactos',    label: 'Contactos',     icon: UserCircle,    grupo: 'Asesor' },
   { href: '/cuaderno',     label: 'Cuaderno',      icon: ClipboardList, grupo: 'Asesor' },
   { href: '/lotes',        label: 'Lotes',         icon: Map,           grupo: 'Producción' },
   { href: '/animales',     label: 'Animales',      icon: PawPrint,      grupo: 'Producción' },
