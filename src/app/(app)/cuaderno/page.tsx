@@ -33,7 +33,6 @@ type Labor = {
   proxima_visita: string | null
   productos: ProductoLabor[]
 }
-type LoteMin = { id: string; nombre: string }
 
 const ACCIONES = ['Barbecho', 'Presiembra', 'Siembra', 'Pre-emergente', 'Post-emergente',
   'Bioestimulante', 'Fungicida', 'Fertilización', 'Pulverización', 'Monitoreo', 'Resiembra', 'Cosecha', 'Análisis']
@@ -47,25 +46,20 @@ function esCosecha(tipo?: string | null) {
 }
 
 // ── Form campaña ─────────────────────────────────────────────────────────────
-function FormCampania({ estId, userId, lotes, onClose, onSaved }: {
+function FormCampania({ estId, userId, onClose, onSaved }: {
   estId: string
   userId: string | null
-  lotes: LoteMin[]
   onClose: () => void
   onSaved: () => void
 }) {
-  const [nombre,     setNombre]     = useState('')
-  const [cultivo,    setCultivo]    = useState('')
-  const [variedad,   setVariedad]   = useState('')
-  const [superficie, setSuperficie] = useState('')
-  const [loteId,     setLoteId]     = useState('')
-  const [saving,     setSaving]     = useState(false)
+  const [nombre,   setNombre]   = useState('')
+  const [cultivo,  setCultivo]  = useState('')
+  const [variedad, setVariedad] = useState('')
+  const [saving,   setSaving]   = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nombre.trim()) { toast.error('Poné un nombre de campaña (ej: 2024-2025)'); return }
-    const sup = superficie ? Number(superficie) : null
-    if (superficie && (isNaN(sup as number) || (sup as number) <= 0)) { toast.error('Superficie inválida'); return }
     setSaving(true)
     try {
       const supabase = createClient()
@@ -74,11 +68,9 @@ function FormCampania({ estId, userId, lotes, onClose, onSaved }: {
         id,
         establecimiento_id: estId,
         asesor_id:  userId,
-        lote_id:    loteId || null,
         nombre:     nombre.trim(),
         cultivo:    cultivo.trim()  || null,
         variedad:   variedad.trim() || null,
-        superficie: sup,
       })
       if (error) throw error
       toast.success('Campaña creada')
@@ -114,19 +106,7 @@ function FormCampania({ estId, userId, lotes, onClose, onSaved }: {
               <input value={variedad} onChange={e => setVariedad(e.target.value)} placeholder="Ej: DM 4670" className={inp} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={lbl}>Superficie (ha)</label>
-              <input type="number" min="0.1" step="0.1" value={superficie} onChange={e => setSuperficie(e.target.value)} placeholder="Ej: 50" className={inp} />
-            </div>
-            <div>
-              <label className={lbl}>Lote (opcional)</label>
-              <select value={loteId} onChange={e => setLoteId(e.target.value)} className={inp}>
-                <option value="">Todo el campo</option>
-                {lotes.map(l => <option key={l.id} value={l.id}>{l.nombre}</option>)}
-              </select>
-            </div>
-          </div>
+          <p className="text-[11px] text-gris">La superficie se toma del campo. Acá cargás el cultivo y la variedad de esta campaña.</p>
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose}
               className="flex-1 border border-borde text-carbon text-xs font-medium py-2 rounded-lg hover:bg-tierra transition-colors">Cancelar</button>
@@ -365,7 +345,6 @@ export default function CuadernoPage() {
   const [campanias, setCampanias] = useState<Campania[]>([])
   const [campaniaSel, setCampaniaSel] = useState<string>('')
   const [labores, setLabores] = useState<Labor[]>([])
-  const [lotes, setLotes] = useState<LoteMin[]>([])
   const [loadingData, setLoadingData] = useState(true)
   const [loadingLabores, setLoadingLabores] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -374,24 +353,22 @@ export default function CuadernoPage() {
 
   const estId = establecimiento?.id
 
-  // Cargar campañas + lotes del campo activo
+  // Cargar campañas del campo activo
   useEffect(() => {
     if (!estId) return
     let cancelled = false
     async function cargar() {
       setLoadingData(true)
       const supabase = createClient()
-      const [{ data: camps }, { data: lts }] = await Promise.all([
-        supabase.from('campanias').select('id, nombre, cultivo, variedad, superficie, lote_id, estado').eq('establecimiento_id', estId!).order('nombre', { ascending: false }),
-        supabase.from('lotes').select('id, nombre').eq('establecimiento_id', estId!).order('nombre'),
-      ])
+      const { data: camps } = await supabase.from('campanias')
+        .select('id, nombre, cultivo, variedad, superficie, lote_id, estado')
+        .eq('establecimiento_id', estId!).order('nombre', { ascending: false })
       if (cancelled) return
       const cs: Campania[] = (camps ?? []).map(c => ({
         id: c.id, nombre: c.nombre, cultivo: c.cultivo, variedad: c.variedad,
         superficie: c.superficie != null ? Number(c.superficie) : null, lote_id: c.lote_id, estado: c.estado,
       }))
       setCampanias(cs)
-      setLotes((lts ?? []) as LoteMin[])
       setCampaniaSel(prev => (cs.some(c => c.id === prev) ? prev : (cs[0]?.id ?? '')))
       setLoadingData(false)
     }
@@ -450,7 +427,7 @@ export default function CuadernoPage() {
         campo:      establecimiento?.nombre ?? '—',
         campania:   campaniaObj.nombre,
         cultivo:    campaniaObj.cultivo ?? '—',
-        superficie: campaniaObj.superficie ? `${campaniaObj.superficie} ha` : '—',
+        superficie: establecimiento?.superficie ? `${establecimiento.superficie} ha` : '—',
         emitido:    new Date().toLocaleDateString('es-AR'),
         labores: labores.map(l => ({
           fecha:           fmt(l.fecha),
@@ -487,7 +464,7 @@ export default function CuadernoPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {formCampania && estId && (
-        <FormCampania estId={estId} userId={userId} lotes={lotes}
+        <FormCampania estId={estId} userId={userId}
           onClose={() => setFormCampania(false)}
           onSaved={() => { setFormCampania(false); setRefreshKey(k => k + 1) }} />
       )}
@@ -553,7 +530,7 @@ export default function CuadernoPage() {
                   </div>
                   <div className="bg-white border border-borde rounded-xl p-3">
                     <div className="text-[10px] text-gris uppercase tracking-wide font-medium mb-1">Superficie</div>
-                    <div className="text-base font-semibold text-carbon">{campaniaObj.superficie ? `${campaniaObj.superficie} ha` : '—'}</div>
+                    <div className="text-base font-semibold text-carbon">{establecimiento?.superficie ? `${establecimiento.superficie} ha` : '—'}</div>
                   </div>
                   <div className="bg-white border border-borde rounded-xl p-3">
                     <div className="text-[10px] text-gris uppercase tracking-wide font-medium mb-1">Labores</div>
