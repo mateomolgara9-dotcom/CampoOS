@@ -1,37 +1,15 @@
 'use client'
+import { Fragment } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import {
-  Home, PawPrint, Map, Package, Wrench,
-  Receipt, Calculator, Users, Antenna,
-  Settings, ShoppingCart, UserCircle, Car,
-} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import clsx from 'clsx'
-
-const navItems = [
-  { href: '/dashboard',  icon: Home,       label: 'Inicio' },
-  { href: '/animales',   icon: PawPrint,   label: 'Animales' },
-  { href: '/lotes',      icon: Map,        label: 'Lotes' },
-  { href: '/inventario', icon: Package,    label: 'Inventario' },
-  { href: '/maquinaria', icon: Wrench,     label: 'Maquinaria' },
-  { href: '/flota',      icon: Car,        label: 'Flota' },
-]
-
-const navItems2 = [
-  { href: '/ventas',      icon: Receipt,        label: 'Ventas' },
-  { href: '/compras',     icon: ShoppingCart,   label: 'Compras' },
-  { href: '/contactos',   icon: UserCircle,     label: 'Contactos' },
-  { href: '/contabilidad',icon: Calculator,     label: 'Contabilidad' },
-  { href: '/rrhh',        icon: Users,          label: 'RRHH' },
-]
-
-const navItems3 = [
-  { href: '/iot',         icon: Antenna,    label: 'IoT RFID' },
-]
+import { MODULOS, moduloVisible } from '@/lib/modulos'
+import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 
 export default function Sidebar() {
   const path = usePathname()
+  const { modulosVisibles } = useEstablecimiento()
 
   const NavItem = ({ href, icon: Icon, label }: { href: string; icon: LucideIcon; label: string }) => {
     const active = path.startsWith(href)
@@ -52,6 +30,10 @@ export default function Sidebar() {
     )
   }
 
+  const visibles = MODULOS.filter(m => moduloVisible(m.href, modulosVisibles, m.fijo))
+  const config = visibles.find(m => m.href === '/config')
+  const flow = visibles.filter(m => m.href !== '/config')
+
   return (
     <div className="w-14 bg-verde flex flex-col items-center py-3 gap-1 flex-shrink-0 h-screen sticky top-0">
       <Link href="/dashboard" className="w-9 h-9 bg-verde-act rounded-lg flex items-center justify-center mb-3">
@@ -62,18 +44,22 @@ export default function Sidebar() {
         </svg>
       </Link>
 
-      {navItems.map(item => <NavItem key={item.href} {...item} />)}
+      {flow.map((m, i) => {
+        const divider = i > 0 && flow[i - 1].grupo !== m.grupo
+        return (
+          <Fragment key={m.href}>
+            {divider && <div className="w-7 h-px bg-white/10 my-2" />}
+            <NavItem href={m.href} icon={m.icon} label={m.label} />
+          </Fragment>
+        )
+      })}
 
-      <div className="w-7 h-px bg-white/10 my-2" />
-      {navItems2.map(item => <NavItem key={item.href} {...item} />)}
-
-      <div className="w-7 h-px bg-white/10 my-2" />
-      {navItems3.map(item => <NavItem key={item.href} {...item} />)}
-
-      <div className="mt-auto">
-        <div className="w-7 h-px bg-white/10 mb-2" />
-        <NavItem href="/config" icon={Settings} label="Configuración" />
-      </div>
+      {config && (
+        <div className="mt-auto">
+          <div className="w-7 h-px bg-white/10 mb-2" />
+          <NavItem href={config.href} icon={config.icon} label={config.label} />
+        </div>
+      )}
     </div>
   )
 }

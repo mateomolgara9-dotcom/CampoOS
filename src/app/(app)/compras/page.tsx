@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Search, Plus, ShoppingCart, X, Truck, FileText, Package, CheckCircle2, Clock, Trash2 } from 'lucide-react'
 import Topbar from '@/components/Topbar'
+import SelectorContacto from '@/components/SelectorContacto'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 import toast from 'react-hot-toast'
@@ -270,8 +271,9 @@ function FormNuevaOC({
             </div>
             <div className="col-span-2">
               <label className={lbl}>Proveedor *</label>
-              <input className={inp} placeholder="ej. Agroquimicos Sur S.R.L." value={form.proveedor}
-                onChange={e => setForm({...form, proveedor: e.target.value})}/>
+              <SelectorContacto valor={form.proveedor}
+                onChange={v => setForm({...form, proveedor: v})}
+                placeholder="Elegí o registrá el proveedor" className={inp}/>
             </div>
             <div>
               <label className={lbl}>Categoria *</label>
@@ -640,7 +642,7 @@ export default function Compras() {
       <div className="flex-1 overflow-y-auto p-4">
 
         {/* KPIs */}
-        <div className="grid grid-cols-4 gap-2.5 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
           {[
             { l:'Comprado acumulado', v: formatUSD(totalAcumulado),    s:'todas las ordenes activas',  c:'border-t-rojo' },
             { l:'Por pagar',          v: formatUSD(porPagar),           s:'pendientes de pago',          c: porPagar > 0 ? 'border-t-ambar' : 'border-t-verde-ac' },
@@ -694,7 +696,7 @@ export default function Compras() {
             <p className="text-xs text-gris">Usá el botón <strong>Nueva orden de compra</strong> para registrar la primera compra</p>
           </div>
         ) : (
-          <div className={"grid gap-3 " + (seleccionada ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
+          <div className={"grid gap-3 " + (seleccionada ? 'grid-cols-1 lg:grid-cols-[1fr_320px]' : 'grid-cols-1')}>
 
             <div className="bg-white border border-borde rounded-xl overflow-hidden">
               <table className="w-full text-xs">

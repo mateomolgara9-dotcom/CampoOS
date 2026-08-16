@@ -271,7 +271,7 @@ export default function Animales() {
       <Topbar title="Gestión animal" actions={actions} />
       <div className="flex-1 overflow-y-auto p-4">
 
-        <div className="grid grid-cols-4 gap-2.5 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
           {[
             { l: 'Total rodeo',   v: animales.length.toString(),                                                        s: 'animales en base de datos', c: 'border-t-verde-ac' },
             { l: 'Con RFID',      v: animales.filter(a => a.tiene_rfid).length.toString(),                              s: 'identificados',             c: 'border-t-azul'    },
@@ -313,7 +313,7 @@ export default function Animales() {
         )}
 
         {!cargando && !error && (
-          <div className="grid grid-cols-[1fr_300px] gap-3 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3 items-start">
             <div className="bg-white border border-borde rounded-xl overflow-hidden">
               <table className="w-full text-xs">
                 <thead>

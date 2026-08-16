@@ -657,7 +657,7 @@ export default function Contabilidad() {
       <div className="flex-1 overflow-y-auto p-4">
 
         {/* KPIs */}
-        <div className="grid grid-cols-4 gap-2.5 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
           <div className="bg-white border border-borde rounded-xl p-3 border-t-2 border-t-verde-ac">
             <div className="text-[10px] text-gris mb-1 uppercase tracking-wide font-medium flex items-center gap-1">
               <ArrowUpRight size={12} className="text-verde"/> Ingresos totales
@@ -758,7 +758,7 @@ export default function Contabilidad() {
             <p className="text-sm text-gris">Cargando movimientos...</p>
           </div>
         ) : (
-          <div className={"grid gap-3 " + (seleccionado ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
+          <div className={"grid gap-3 " + (seleccionado ? 'grid-cols-1 lg:grid-cols-[1fr_320px]' : 'grid-cols-1')}>
             <div className="bg-white border border-borde rounded-xl overflow-hidden">
               <table className="w-full text-xs">
                 <thead>

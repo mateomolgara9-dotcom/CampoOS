@@ -1,111 +1,17 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase'
+import { useEstablecimientoContext } from '@/context/EstablecimientoProvider'
 
-export type Perfil = {
-  user_id: string
-  establecimiento_id: string
-  nombre_completo: string | null
-  rol: 'admin' | 'operario' | 'solo_lectura'
-  avatar_iniciales: string | null
-}
+export type { Perfil, Establecimiento, Productor, Rol } from '@/context/EstablecimientoProvider'
 
-export type Establecimiento = {
-  id: string
-  nombre: string
-  provincia: string | null
-  superficie: number | null
-}
-
-type Result = {
-  userId: string | null
-  userEmail: string | null
-  perfil: Perfil | null
-  establecimiento: Establecimiento | null
-  loading: boolean
-  needsOnboarding: boolean
-}
-
-export function useEstablecimiento(): Result {
-  const [userId, setUserId] = useState<string | null>(null)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [perfil, setPerfil] = useState<Perfil | null>(null)
-  const [establecimiento, setEstablecimiento] = useState<Establecimiento | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const supabase = createClient()
-    let cancelled = false
-
-    async function load() {
-      const { data: { user }, error: userErr } = await supabase.auth.getUser()
-      if (cancelled) return
-
-      if (userErr || !user) {
-        setLoading(false)
-        return
-      }
-
-      setUserId(user.id)
-      setUserEmail(user.email ?? null)
-
-      // maybeSingle() devuelve null sin error cuando no hay filas (evita 406)
-      const { data: p, error: pErr } = await supabase
-        .from('perfil_usuarios')
-        .select('user_id, establecimiento_id, nombre_completo, rol, avatar_iniciales')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      if (cancelled) return
-
-      if (pErr) {
-        console.error('[CampoOS] Error al cargar perfil:', pErr.message)
-        setLoading(false)
-        return
-      }
-      if (!p) {
-        // Usuario autenticado pero sin perfil → estado huérfano
-        setLoading(false)
-        return
-      }
-
-      setPerfil(p)
-
-      const { data: e, error: eErr } = await supabase
-        .from('establecimientos')
-        .select('id, nombre, provincia, superficie')
-        .eq('id', p.establecimiento_id)
-        .maybeSingle()
-
-      if (cancelled) return
-
-      if (eErr) {
-        console.error('[CampoOS] Error al cargar establecimiento:', eErr.message)
-      } else if (e) {
-        setEstablecimiento(e)
-      }
-
-      setLoading(false)
-    }
-
-    load()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT' && !cancelled) {
-        setUserId(null)
-        setUserEmail(null)
-        setPerfil(null)
-        setEstablecimiento(null)
-      }
-    })
-
-    return () => {
-      cancelled = true
-      subscription.unsubscribe()
-    }
-  }, [])
-
-  const needsOnboarding = !loading && userId !== null && perfil === null
-
-  return { userId, userEmail, perfil, establecimiento, loading, needsOnboarding }
+/**
+ * Contexto multi-tenant de CampoOS. Devuelve el establecimiento ACTIVO
+ * (el que el switcher tiene seleccionado) y, para el asesor, la lista de
+ * productores/campos y la función para cambiar de campo.
+ *
+ * Mantiene el mismo contrato que la versión anterior (userId, userEmail,
+ * perfil, establecimiento, loading, needsOnboarding), así que los módulos
+ * existentes siguen funcionando sin cambios.
+ */
+export function useEstablecimiento() {
+  return useEstablecimientoContext()
 }

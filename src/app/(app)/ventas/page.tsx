@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Search, Plus, Receipt, TrendingUp, X, FileText, Truck, Wheat } from 'lucide-react'
 import Topbar from '@/components/Topbar'
+import SelectorContacto from '@/components/SelectorContacto'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 import toast from 'react-hot-toast'
@@ -493,9 +494,8 @@ function FormNuevaVenta({
           {/* Cliente */}
           <div>
             <label className="block text-xs font-medium text-carbon mb-1.5">Cliente *</label>
-            <input value={cliente} onChange={e => setCliente(e.target.value)}
-              placeholder="Nombre o razón social"
-              className={inputCls}/>
+            <SelectorContacto valor={cliente} onChange={setCliente}
+              placeholder="Elegí o registrá el cliente" className={inputCls}/>
           </div>
 
           {/* Fecha y Estado */}
@@ -790,7 +790,7 @@ export default function Ventas() {
       <div className="flex-1 overflow-y-auto p-4">
 
         {/* KPIs */}
-        <div className="grid grid-cols-4 gap-2.5 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
           {[
             { l:'Vendido acumulado',    v: formatUSD(totalAcumulado),          s:'ventas liquidadas',              c:'border-t-verde-ac' },
             { l:'Por cobrar',           v: formatUSD(totalPendiente),           s: pendientes.length + ' ventas pendientes', c:'border-t-ambar' },
@@ -806,7 +806,7 @@ export default function Ventas() {
         </div>
 
         {/* Grafico + Detalle */}
-        <div className={"grid gap-3 mb-4 " + (seleccionada ? 'grid-cols-[1fr_320px]' : 'grid-cols-1')}>
+        <div className={"grid gap-3 mb-4 " + (seleccionada ? 'grid-cols-1 lg:grid-cols-[1fr_320px]' : 'grid-cols-1')}>
           <GraficoMensual ventas={ventas}/>
           {seleccionada && <PanelDetalleVenta venta={seleccionada} onClose={() => setSeleccionada(null)}/>}
         </div>

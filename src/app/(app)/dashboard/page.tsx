@@ -218,12 +218,12 @@ export default function Dashboard() {
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-4 gap-2.5 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
           {kpis.map((kpi, i) => <KpiCard key={i} {...kpi} />)}
         </div>
 
         {/* Main grid */}
-        <div className="grid grid-cols-[1fr_280px] gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-3">
 
           {/* Left */}
           <div className="flex flex-col gap-3">

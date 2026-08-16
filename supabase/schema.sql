@@ -2,6 +2,9 @@
 -- CampoOS — Schema completo v2
 -- Aplicar en: Supabase → SQL Editor → Pegar todo → Run
 -- ============================================================
+-- NOTA: cambios posteriores se versionan en supabase/migrations/ (aplicar en
+-- orden, después de este archivo). Estado base original acá.
+-- ============================================================
 
 -- ─── FUNCIÓN GLOBAL PARA updated_at ──────────────────────────────────────────
 CREATE OR REPLACE FUNCTION update_updated_at()
@@ -556,3 +559,51 @@ CREATE INDEX IF NOT EXISTS idx_animales_caravana      ON animales(caravana);
 CREATE INDEX IF NOT EXISTS idx_mov_contables_fecha    ON movimientos_contables(fecha);
 CREATE INDEX IF NOT EXISTS idx_lecturas_rfid_hora     ON lecturas_rfid(hora);
 -- ventas(numero) y compras(numero) ya tienen índice implícito por UNIQUE(establecimiento_id, numero)
+
+
+-- ════════════════════════════════════════════════════════════
+-- MÓDULO ASESOR — CUADERNO DE CAMPO / VISITAS
+-- (definido también en supabase/migrations/01_visitas_campo.sql)
+-- ════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS visitas_campo (
+  id                 UUID        PRIMARY KEY,                  -- UUID generado en el cliente
+  establecimiento_id UUID        NOT NULL
+                       REFERENCES establecimientos(id) ON DELETE CASCADE,
+  asesor_id          UUID        NOT NULL DEFAULT auth.uid(),  -- autor de la visita (auditoría)
+  lote_id            UUID        REFERENCES lotes(id) ON DELETE SET NULL,
+  fecha              DATE        NOT NULL DEFAULT CURRENT_DATE CHECK (fecha <= CURRENT_DATE),
+  cultivo            TEXT        CHECK (char_length(cultivo) <= 100),
+  estado_fenologico  TEXT        CHECK (char_length(estado_fenologico) <= 100),
+  labores            TEXT        CHECK (char_length(labores) <= 4000),
+  observaciones      TEXT        CHECK (char_length(observaciones) <= 4000),
+  analisis           TEXT        CHECK (char_length(analisis) <= 4000),
+  recomendaciones    TEXT        CHECK (char_length(recomendaciones) <= 4000),
+  proxima_visita     DATE,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT visitas_proxima_coherente
+    CHECK (proxima_visita IS NULL OR proxima_visita >= fecha)
+);
+
+CREATE INDEX IF NOT EXISTS idx_visitas_est    ON visitas_campo(establecimiento_id);
+CREATE INDEX IF NOT EXISTS idx_visitas_lote   ON visitas_campo(lote_id);
+CREATE INDEX IF NOT EXISTS idx_visitas_asesor ON visitas_campo(asesor_id);
+CREATE INDEX IF NOT EXISTS idx_visitas_fecha  ON visitas_campo(fecha DESC);
+
+-- Trigger: mantiene updated_at y blinda campos de auditoría/tenant (inmutables)
+CREATE OR REPLACE FUNCTION visitas_campo_guard()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
+BEGIN
+  NEW.updated_at         := now();
+  NEW.asesor_id          := OLD.asesor_id;
+  NEW.created_at         := OLD.created_at;
+  NEW.establecimiento_id := OLD.establecimiento_id;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS visitas_campo_guard_trg ON visitas_campo;
+CREATE TRIGGER visitas_campo_guard_trg
+  BEFORE UPDATE ON visitas_campo
+  FOR EACH ROW EXECUTE FUNCTION visitas_campo_guard();
