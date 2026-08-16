@@ -5,6 +5,7 @@ import {
   Sprout, ClipboardList, FileDown,
 } from 'lucide-react'
 import Topbar from '@/components/Topbar'
+import SelectorContacto from '@/components/SelectorContacto'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 import toast from 'react-hot-toast'
@@ -238,7 +239,8 @@ function FormLabor({ estId, userId, campaniaId, loteId, editar, onClose, onSaved
             </div>
             <div>
               <label className={lbl}>Responsable</label>
-              <input value={responsable} onChange={e => setResponsable(e.target.value)} placeholder="Quién lo hizo" className={inp} />
+              <SelectorContacto establecimientoId={estId} tipo="Contratista" valor={responsable}
+                onChange={setResponsable} placeholder="Elegí o registrá" className={inp} />
             </div>
           </div>
 

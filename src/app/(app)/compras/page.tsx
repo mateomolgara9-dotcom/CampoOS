@@ -271,9 +271,9 @@ function FormNuevaOC({
             </div>
             <div className="col-span-2">
               <label className={lbl}>Proveedor *</label>
-              <SelectorContacto establecimientoId={establecimientoId} valor={form.proveedor}
+              <SelectorContacto establecimientoId={establecimientoId} tipo="Proveedor" valor={form.proveedor}
                 onChange={v => setForm({...form, proveedor: v})}
-                placeholder="ej. Agroquimicos Sur S.R.L." className={inp}/>
+                placeholder="Elegí o registrá el proveedor" className={inp}/>
             </div>
             <div>
               <label className={lbl}>Categoria *</label>
