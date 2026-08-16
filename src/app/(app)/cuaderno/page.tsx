@@ -1,8 +1,8 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Plus, X, Trash2, Pencil, User, FileText, Calendar,
-  Sprout, ClipboardList, FileDown,
+  Sprout, ClipboardList, FileDown, Mic, MicOff,
 } from 'lucide-react'
 import Topbar from '@/components/Topbar'
 import { createClient } from '@/lib/supabase'
@@ -43,6 +43,78 @@ const lbl = 'text-xs text-gris block mb-1'
 
 function esCosecha(tipo?: string | null) {
   return (tipo ?? '').toLowerCase().includes('cosecha')
+}
+
+// Reconocimiento de voz del navegador (sin tipos oficiales estables → interfaz mínima)
+interface RecLike {
+  lang: string
+  continuous: boolean
+  interimResults: boolean
+  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null
+  onerror: ((e: { error: string }) => void) | null
+  onend: (() => void) | null
+  start: () => void
+  stop: () => void
+}
+
+// Textarea con botón de dictado (voz → texto) — ideal para cargar en el campo sin escribir
+function CampoTextoDictado({ label, value, onChange, rows = 2 }: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  rows?: number
+}) {
+  const [escuchando, setEscuchando] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const recRef = useRef<RecLike | null>(null)
+  const baseRef = useRef('')
+
+  useEffect(() => { setMounted(true) }, [])
+  useEffect(() => () => { try { recRef.current?.stop() } catch { /* noop */ } }, [])
+
+  const soportado = mounted && typeof window !== 'undefined' &&
+    (('SpeechRecognition' in window) || ('webkitSpeechRecognition' in window))
+
+  function toggle() {
+    if (escuchando) { try { recRef.current?.stop() } catch { /* noop */ } return }
+    const w = window as unknown as { SpeechRecognition?: new () => RecLike; webkitSpeechRecognition?: new () => RecLike }
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition
+    if (!SR) { toast.error('Tu navegador no soporta dictado. Probá con Chrome.'); return }
+    const rec = new SR()
+    rec.lang = 'es-AR'
+    rec.continuous = true
+    rec.interimResults = true
+    baseRef.current = value ? value.trim() : ''
+    rec.onresult = (e) => {
+      let txt = ''
+      for (let i = 0; i < e.results.length; i++) txt += e.results[i][0].transcript
+      onChange((baseRef.current ? baseRef.current + ' ' : '') + txt)
+    }
+    rec.onerror = (e) => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast.error('Permití el micrófono para dictar')
+      setEscuchando(false)
+    }
+    rec.onend = () => setEscuchando(false)
+    recRef.current = rec
+    try { rec.start(); setEscuchando(true) } catch { /* ya iniciado */ }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <label className="text-xs text-gris">{label}</label>
+        {soportado && (
+          <button type="button" onClick={toggle}
+            className={'flex items-center gap-1 text-[11px] font-medium ' + (escuchando ? 'text-rojo animate-pulse' : 'text-verde-act hover:text-verde')}>
+            {escuchando ? <><MicOff size={12} /> Detener</> : <><Mic size={12} /> Dictar</>}
+          </button>
+        )}
+      </div>
+      <textarea value={value} onChange={e => onChange(e.target.value)} rows={rows}
+        placeholder={escuchando ? 'Hablá, se va escribiendo...' : undefined}
+        className={inp + (escuchando ? ' border-rojo' : '')} />
+    </div>
+  )
 }
 
 // ── Form campaña ─────────────────────────────────────────────────────────────
@@ -267,18 +339,10 @@ function FormLabor({ estId, userId, campaniaId, loteId, editar, onClose, onSaved
             <label className={lbl}>Estado fenológico</label>
             <input value={estadoFeno} onChange={e => setEstadoFeno(e.target.value)} placeholder="Ej: V4, R1..." className={inp} />
           </div>
-          <div>
-            <label className={lbl}>Observaciones</label>
-            <textarea value={observ} onChange={e => setObserv(e.target.value)} rows={2} className={inp} />
-          </div>
-          <div>
-            <label className={lbl}>Análisis</label>
-            <textarea value={analisis} onChange={e => setAnalisis(e.target.value)} rows={2} className={inp} />
-          </div>
-          <div>
-            <label className={lbl}>Recomendaciones</label>
-            <textarea value={recom} onChange={e => setRecom(e.target.value)} rows={2} className={inp} />
-          </div>
+          <CampoTextoDictado label="Observaciones" value={observ} onChange={setObserv} />
+          <CampoTextoDictado label="Análisis" value={analisis} onChange={setAnalisis} />
+          <CampoTextoDictado label="Recomendaciones" value={recom} onChange={setRecom} />
+
           <div>
             <label className={lbl}>Próxima visita</label>
             <input type="date" value={proxima} onChange={e => setProxima(e.target.value)} className={inp} />
