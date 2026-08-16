@@ -252,11 +252,11 @@ function FormLabor({ estId, userId, campaniaId, loteId, editar, onClose, onSaved
             </div>
             <div className="space-y-2">
               {productos.map((p, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  <input value={p.producto} onChange={e => setProd(i, 'producto', e.target.value)} placeholder="Producto" className={inp + ' flex-1'} />
-                  <input type="number" min="0" step="0.01" value={p.cantidad} onChange={e => setProd(i, 'cantidad', e.target.value)} placeholder="Cant." className={inp + ' w-16'} />
-                  <input list="unidades-list" value={p.unidad} onChange={e => setProd(i, 'unidad', e.target.value)} placeholder="Un." className={inp + ' w-16'} />
-                  <button type="button" onClick={() => delProd(i)} className="text-gris hover:text-rojo flex-shrink-0"><Trash2 size={14} /></button>
+                <div key={i} className="grid grid-cols-[1fr_4.5rem_4.5rem_auto] gap-2 items-center">
+                  <input value={p.producto} onChange={e => setProd(i, 'producto', e.target.value)} placeholder="Producto" className={inp} />
+                  <input type="number" min="0" step="0.01" value={p.cantidad} onChange={e => setProd(i, 'cantidad', e.target.value)} placeholder="Cant." className={inp} />
+                  <input list="unidades-list" value={p.unidad} onChange={e => setProd(i, 'unidad', e.target.value)} placeholder="Un." className={inp} />
+                  <button type="button" onClick={() => delProd(i)} className="text-gris hover:text-rojo"><Trash2 size={14} /></button>
                 </div>
               ))}
               <datalist id="unidades-list">{UNIDADES.map(u => <option key={u} value={u} />)}</datalist>
