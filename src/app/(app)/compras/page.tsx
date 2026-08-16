@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Search, Plus, ShoppingCart, X, Truck, FileText, Package, CheckCircle2, Clock, Trash2 } from 'lucide-react'
 import Topbar from '@/components/Topbar'
+import SelectorContacto from '@/components/SelectorContacto'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 import toast from 'react-hot-toast'
@@ -270,8 +271,9 @@ function FormNuevaOC({
             </div>
             <div className="col-span-2">
               <label className={lbl}>Proveedor *</label>
-              <input className={inp} placeholder="ej. Agroquimicos Sur S.R.L." value={form.proveedor}
-                onChange={e => setForm({...form, proveedor: e.target.value})}/>
+              <SelectorContacto establecimientoId={establecimientoId} valor={form.proveedor}
+                onChange={v => setForm({...form, proveedor: v})}
+                placeholder="ej. Agroquimicos Sur S.R.L." className={inp}/>
             </div>
             <div>
               <label className={lbl}>Categoria *</label>

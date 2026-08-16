@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Search, Plus, Receipt, TrendingUp, X, FileText, Truck, Wheat } from 'lucide-react'
 import Topbar from '@/components/Topbar'
+import SelectorContacto from '@/components/SelectorContacto'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 import toast from 'react-hot-toast'
@@ -493,9 +494,8 @@ function FormNuevaVenta({
           {/* Cliente */}
           <div>
             <label className="block text-xs font-medium text-carbon mb-1.5">Cliente *</label>
-            <input value={cliente} onChange={e => setCliente(e.target.value)}
-              placeholder="Nombre o razón social"
-              className={inputCls}/>
+            <SelectorContacto establecimientoId={establecimientoId} valor={cliente} onChange={setCliente}
+              placeholder="Nombre o razón social" className={inputCls}/>
           </div>
 
           {/* Fecha y Estado */}
