@@ -501,7 +501,7 @@ function FormNuevoContacto({
 
 // ── Pagina principal ───────────────────────────────────────────────────────────
 export default function Contactos() {
-  const { establecimiento } = useEstablecimiento()
+  const { establecimiento, userId } = useEstablecimiento()
   const [contactos, setContactos] = useState<Contacto[]>([])
   const [loadingContactos, setLoadingContactos] = useState(true)
   const [mostrarForm, setMostrarForm] = useState(false)
@@ -513,7 +513,7 @@ export default function Contactos() {
   const [seleccionado, setSeleccionado] = useState<Contacto | null>(null)
 
   useEffect(() => {
-    if (!establecimiento?.id) return
+    if (!userId) return
     let cancelled = false
 
     async function cargar() {
@@ -521,7 +521,6 @@ export default function Contactos() {
       const { data, error } = await supabase
         .from('contactos')
         .select('*')
-        .eq('establecimiento_id', establecimiento!.id)
         .order('nombre')
 
       if (cancelled) return
@@ -559,7 +558,7 @@ export default function Contactos() {
 
     cargar()
     return () => { cancelled = true }
-  }, [establecimiento?.id, refreshKey])
+  }, [userId, refreshKey])
 
   function handleSuccess(c: Contacto) {
     setContactos(prev => [...prev, c].sort((a, b) => a.nombre.localeCompare(b.nombre)))

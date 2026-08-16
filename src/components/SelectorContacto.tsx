@@ -1,34 +1,42 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Search, Plus, Check, ChevronDown } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useEstablecimiento } from '@/hooks/useEstablecimiento'
 
+type Contacto = { id: string; nombre: string }
+
 /**
- * Selector conectado a la ÚNICA base de contactos (tu directorio de gente:
- * productores, clientes, proveedores, contratistas — todos juntos).
+ * Selector conectado a la ÚNICA libreta global de Contactos (del asesor).
  * No permite texto libre: elegís uno registrado o lo registrás al vuelo.
- * La misma base se usa en Ventas, Compras y Cuaderno.
+ * La misma libreta se usa en Productores, Ventas, Compras y Cuaderno.
  */
-export default function SelectorContacto({ valor, onChange, placeholder, className }: {
+export default function SelectorContacto({ tipo = 'Otro', valor, onChange, placeholder, className }: {
+  tipo?: string
   valor: string
   onChange: (nombre: string, contactoId: string | null) => void
   placeholder?: string
   className?: string
 }) {
-  const { productores, userId, refrescar } = useEstablecimiento()
+  const { userId } = useEstablecimiento()
+  const [contactos, setContactos] = useState<Contacto[]>([])
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [creando, setCreando] = useState(false)
 
-  const query = q.trim().toLowerCase()
-  const filtrados = productores.filter(c => c.nombre.toLowerCase().includes(query))
-  const existeExacto = productores.some(c => c.nombre.toLowerCase() === query)
+  const cargar = useCallback(async () => {
+    const supabase = createClient()
+    const { data } = await supabase.from('contactos').select('id, nombre').order('nombre')
+    setContactos((data ?? []) as Contacto[])
+  }, [])
+  useEffect(() => { cargar() }, [cargar])
 
-  function elegir(c: { id: string; nombre: string }) {
-    onChange(c.nombre, c.id); setOpen(false); setQ('')
-  }
+  const query = q.trim().toLowerCase()
+  const filtrados = contactos.filter(c => c.nombre.toLowerCase().includes(query))
+  const existeExacto = contactos.some(c => c.nombre.toLowerCase() === query)
+
+  function elegir(c: Contacto) { onChange(c.nombre, c.id); setOpen(false); setQ('') }
 
   async function registrar() {
     const nombre = q.trim()
@@ -37,9 +45,9 @@ export default function SelectorContacto({ valor, onChange, placeholder, classNa
     try {
       const supabase = createClient()
       const id = crypto.randomUUID()
-      const { error } = await supabase.from('productores').insert({ id, asesor_id: userId, nombre })
+      const { error } = await supabase.from('contactos').insert({ id, nombre, tipo, asesor_id: userId })
       if (error) throw error
-      await refrescar()
+      setContactos(prev => [...prev, { id, nombre }].sort((a, b) => a.nombre.localeCompare(b.nombre)))
       onChange(nombre, id)
       setOpen(false); setQ('')
       toast.success('Contacto registrado')

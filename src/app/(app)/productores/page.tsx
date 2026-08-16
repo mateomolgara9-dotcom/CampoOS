@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Plus, X, MapPin, Pencil, ArrowRight, Briefcase, Phone, Mail } from 'lucide-react'
 import Topbar from '@/components/Topbar'
+import SelectorContacto from '@/components/SelectorContacto'
 import { createClient } from '@/lib/supabase'
 import { useEstablecimiento, type Productor } from '@/hooks/useEstablecimiento'
 import { useRouter } from 'next/navigation'
@@ -24,7 +25,21 @@ function FormProductor({ userId, editar, onClose, onSaved }: {
   const [email,     setEmail]     = useState(editar?.email ?? '')
   const [localidad, setLocalidad] = useState(editar?.localidad ?? '')
   const [provincia, setProvincia] = useState(editar?.provincia ?? '')
+  const [contactoId, setContactoId] = useState<string | null>(null)
   const [saving,    setSaving]    = useState(false)
+
+  async function elegirContacto(n: string, id: string | null) {
+    setNombre(n); setContactoId(id)
+    if (!id) return
+    const supabase = createClient()
+    const { data } = await supabase.from('contactos')
+      .select('razon_social, cuit, telefono, email, ciudad, provincia').eq('id', id).maybeSingle()
+    if (data) {
+      setRazon(data.razon_social ?? ''); setCuit(data.cuit ?? '')
+      setTelefono(data.telefono ?? ''); setEmail(data.email ?? '')
+      setLocalidad(data.ciudad ?? ''); setProvincia(data.provincia ?? '')
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -46,7 +61,7 @@ function FormProductor({ userId, editar, onClose, onSaved }: {
         if (error) throw error
       } else {
         const id = crypto.randomUUID()
-        const { error } = await supabase.from('productores').insert({ id, asesor_id: userId, ...payload })
+        const { error } = await supabase.from('productores').insert({ id, asesor_id: userId, contacto_id: contactoId, ...payload })
         if (error) throw error
       }
       toast.success(editar ? 'Productor actualizado' : 'Productor creado')
@@ -69,8 +84,8 @@ function FormProductor({ userId, editar, onClose, onSaved }: {
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-3">
           <div>
-            <label className={lbl}>Nombre / Razón *</label>
-            <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Las del Bianco" className={inp} />
+            <label className={lbl}>Contacto *</label>
+            <SelectorContacto tipo="Cliente" valor={nombre} onChange={elegirContacto} placeholder="Elegí o registrá el contacto" className={inp} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

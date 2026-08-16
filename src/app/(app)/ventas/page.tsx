@@ -494,7 +494,7 @@ function FormNuevaVenta({
           {/* Cliente */}
           <div>
             <label className="block text-xs font-medium text-carbon mb-1.5">Cliente *</label>
-            <SelectorContacto valor={cliente} onChange={setCliente}
+            <SelectorContacto tipo="Cliente" valor={cliente} onChange={setCliente}
               placeholder="Elegí o registrá el cliente" className={inputCls}/>
           </div>
 
